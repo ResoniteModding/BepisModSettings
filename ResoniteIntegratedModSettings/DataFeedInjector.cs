@@ -1,15 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.NET.Common;
+using BepInExResoniteShim;
 using Elements.Assets;
 using Elements.Core;
 using FrooxEngine;
 using FrooxEngine.UIX;
 using HarmonyLib;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Security.Principal;
+using System.Threading.Tasks;
+using static FrooxEngine.LegacySegmentCircleMenuController;
+using static FrooxEngine.SettingsDataFeed;
 
 namespace ResoniteIntegratedModSettings;
 
@@ -26,6 +31,7 @@ public class DataFeedInjector
         ResoniteIntegratedModSettings.Log.LogDebug($"Current Path: {string.Join(" -> ", path)}");
         CurrentPath = path;
 
+        // Handle root category
         if (path.Count == 1)
         {
             LocaleData bepisLocale = new LocaleData
@@ -79,13 +85,35 @@ public class DataFeedInjector
                 }
             }
         }
-        else if (path.Count == 2 && path[1] != "BepInEx.Core")
+        // Handle plugin configs page
+        else if (path.Count == 2)
         {
             string pluginId = path[1];
 
-            PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
 
-            if (pluginInfo?.Instance is not BasePlugin plugin) yield break;
+            ConfigFile file;
+            ModMeta data;
+
+            if (pluginId == "BepInEx.Core")
+            {
+                file = ConfigFile.CoreConfig;
+                data = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), pluginId, null, null);
+            }
+            else
+            {
+                PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
+                if (pluginInfo?.Instance is not BasePlugin plugin) yield break;
+
+                BepInPlugin metaData = MetadataHelper.GetMetadata(plugin);
+
+                file = plugin.Config;
+                data = new ModMeta(metaData.Name, metaData.Version.ToString(), pluginId, null, null);
+                if (plugin is BaseResonitePlugin resonitePlugin)
+                {
+                    data.author = resonitePlugin.Author;
+                    data.link = resonitePlugin.Link;
+                }
+            }
 
             // Settings
             // DataFeedGroup settings = new DataFeedGroup();
@@ -93,77 +121,60 @@ public class DataFeedInjector
             // yield return settings;
 
             // Configs
-            DataFeedResettableGroup configs = new DataFeedResettableGroup();
-            configs.InitBase("Configs", path, null, "Configs");
-            configs.InitResetAction(a => a.Target = ResetConfigs);
-            yield return configs;
+            //DataFeedResettableGroup configs = new DataFeedResettableGroup();
+            //configs.InitBase("Configs", path, null, "Configs");
+            //configs.InitResetAction(a => a.Target = ResetConfigs);
+            //yield return configs;
 
-            string[] configsGroup = new[] { "Configs" };
+            //string[] configsGroup = new[] { "Configs" };
 
-            if (plugin.Config is not { Count: > 0 })
+            if (file.Count == 0)
             {
                 DataFeedLabel noConfigs = new DataFeedLabel();
-                noConfigs.InitBase("NoConfigs", path, configsGroup, "This Plugin has No Configs");
+                noConfigs.InitBase("NoConfigs", path, null, "This Plugin has No Configs");
                 yield return noConfigs;
             }
 
-            BepInPlugin metaData = MetadataHelper.GetMetadata(plugin);
-
-            IAsyncEnumerable<DataFeedItem> things = EnumerateConfigs(plugin.Config, metaData.Name, metaData.Version.ToString(), pluginId, configsGroup, path);
+            IAsyncEnumerable<DataFeedItem> things = EnumerateConfigs(file, data, null, path);
             await foreach (DataFeedItem item in things)
             {
                 yield return item;
             }
         }
-        else if (path.Count == 2 && path[1] == "BepInEx.Core")
+        else if (path.Count >= 3)
         {
-            // Settings
-            // DataFeedGroup settings = new DataFeedGroup();
-            // settings.InitBase("Settings", path, null, "Settings");
-            // yield return settings;
-            
-            // Configs
-            DataFeedResettableGroup configs = new DataFeedResettableGroup();
-            configs.InitBase("Configs", path, null, "Configs");
-            configs.InitResetAction(a => a.Target = ResetConfigs);
-            yield return configs;
-
-            string[] configsGroup = new[] { "Configs" };
-
-            ConfigFile config = ConfigFile.CoreConfig;
-
-            IAsyncEnumerable<DataFeedItem> things = EnumerateConfigs(config, "BepInEx Core Config", Utility.BepInExVersion.ToString(), "BepInEx.Core.Config", configsGroup, path);
-            await foreach (DataFeedItem item in things)
+            if (categoryHandlers.TryGetValue(path.Last(), out var handler))
             {
-                yield return item;
+                await foreach (DataFeedItem item in handler(path))
+                {
+                    yield return item;
+                }
+            }
+            else
+            {
+                DataFeedLabel noConfigs = new DataFeedLabel();
+                noConfigs.InitBase("InvalidCategory", path, null, "An error has occurred.");
+                yield return noConfigs;
             }
         }
-        // else if (path.Count >= 3)
-        // {
-        //     var module = SussyLoader.LoadedModules.FirstOrDefault(a => a.HarmonyId == path[1]);
-        //     switch (path.Last())
-        //     {
-        //         case "SaveConfig":
-        //             if (module == null) break;
-        // 
-        //             string filename = System.IO.Path.ChangeExtension(System.IO.Path.GetFileName(module.Name), ".json");
-        //             string filePath = System.IO.Path.Combine(SussyConfig.ConfigDir, filename);
-        // 
-        //             SussyConfig.SaveConfigToFile(module, filePath);
-        //             SussyHandler.GoUpOneSetting();
-        //             break;
-        //         case "Unload":
-        //             if (module == null) break;
-        //             
-        //             SussyHandler.TryUnloadModule(path[1]);
-        //             SussyHandler.GoToSettingPath("SussyLoader");
-        //             break;
-        //     }
-        // }
     }
 
-    private static async IAsyncEnumerable<DataFeedItem> EnumerateConfigs(ConfigFile configFile, string name, string vers, string pluginId, IReadOnlyList<string> configsGroup, IReadOnlyList<string> path)
+    static Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>> categoryHandlers = new();
+
+    record struct ModMeta(string name, string version, string id, string author, string link);
+
+    private static async IAsyncEnumerable<DataFeedItem> EnumerateConfigs(ConfigFile configFile, ModMeta meta, IReadOnlyList<string> configsGroup, IReadOnlyList<string> path)
     {
+        // Used for enum config keys. basically you can define a function which will display a subcategory of this category.
+        categoryHandlers.Clear();
+
+        if (string.IsNullOrWhiteSpace(meta.name))
+            meta.name = "<i>Unknown</i>";
+        if (string.IsNullOrWhiteSpace(meta.version))
+            meta.name = "<i>Unknown</i>";
+        if (string.IsNullOrWhiteSpace(meta.id))
+            meta.name = "<i>Unknown</i>";
+
         if (configFile.Count > 0)
         {
             HashSet<string> sections = new HashSet<string>();
@@ -189,14 +200,14 @@ public class DataFeedInjector
                     yield return configs;
                 }
 
-                string initKey = config.Definition.Key + section;
+                string initKey = section + "." + config.Definition.Key;
                 string key = added.Contains(initKey)
                         ? initKey + added.Count
                         : initKey;
 
                 added.Add(key);
 
-                string[] groupingKeys = configsGroup.Concat([section]).ToArray();
+                string[] groupingKeys = configsGroup?.Concat([section]).ToArray() ?? [section];
 
                 if (valueType == _dummyType)
                 {
@@ -210,20 +221,53 @@ public class DataFeedInjector
                 }
                 else if (valueType.IsEnum)
                 {
-                    DataFeedItem enumItem;
-
-                    try
+                    if (valueType.GetCustomAttribute<FlagsAttribute>() != null)
                     {
-                        enumItem = (DataFeedItem)DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
-                    }
-                    catch (Exception e)
-                    {
-                        ResoniteIntegratedModSettings.Log.LogError(e);
-                        enumItem = new DataFeedValueField<dummy>();
-                        enumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
-                    }
+                        DataFeedItem flagsEnumItem;
 
-                    yield return enumItem;
+                        try
+                        {
+                            LocaleData localeData = new LocaleData
+                            {
+                                LocaleCode = "en",
+                                Authors = new List<string> { "BepInEx" },
+                                Messages = new Dictionary<string, string>
+                                {
+                                    { $"Settings.{key}.Breadcrumb", config.Definition.Key.BeautifyName() }
+                                }
+                            };
+                            SettingsLocaleHelper.Update(localeData);
+
+                            categoryHandlers.Add(key, (path2) => (IAsyncEnumerable<DataFeedItem>) DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
+                            flagsEnumItem = new DataFeedCategory();
+                            flagsEnumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {config.BoxedValue}", config.Description.Description);
+                        }
+                        catch (Exception e)
+                        {
+                            ResoniteIntegratedModSettings.Log.LogError(e);
+                            flagsEnumItem = new DataFeedValueField<dummy>();
+                            flagsEnumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
+                        }
+
+                        yield return flagsEnumItem;
+                    }
+                    else
+                    {
+                        DataFeedItem enumItem;
+
+                        try
+                        {
+                            enumItem = (DataFeedItem) DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
+                        }
+                        catch (Exception e)
+                        {
+                            ResoniteIntegratedModSettings.Log.LogError(e);
+                            enumItem = new DataFeedValueField<dummy>();
+                            enumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
+                        }
+
+                        yield return enumItem;
+                    }
                 }
                 else if (valueType.IsNullable())
                 {
@@ -234,7 +278,7 @@ public class DataFeedInjector
 
                         try
                         {
-                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, config, configFile]);
+                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>) DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, config, configFile]);
                         }
                         catch (Exception e)
                         {
@@ -257,7 +301,7 @@ public class DataFeedInjector
 
                     try
                     {
-                        valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
+                        valueItem = (DataFeedItem) DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
                     }
                     catch (Exception e)
                     {
@@ -271,9 +315,21 @@ public class DataFeedInjector
             }
         }
 
-        DataFeedCategory saveCat = new DataFeedCategory();
-        saveCat.InitBase("SaveConfig", path, null, $"Save Config: {name}", "Save the current selected Module's Configs");
-        yield return saveCat;
+        const string groupId = $"ActionsGroup";
+        DataFeedGroup group = new DataFeedGroup();
+        group.InitBase(groupId, path, null, "Actions");
+        yield return group;
+        string[] groupKeys = [groupId];
+
+        var saveAct = new DataFeedValueAction<string>();
+        saveAct.InitBase("SaveConfig", path, groupKeys, $"Save Config File", "Save the currently selected Plugin's Configs");
+        saveAct.InitAction((syncDelegate) => syncDelegate.Target = SaveConfigs, meta.id);
+        yield return saveAct;
+
+        var resetAct = new DataFeedValueAction<string>();
+        resetAct.InitBase("ResetConfig", path, groupKeys, $"Reset ALL Config Categories", "Reset all categories from the currently selected Plugin's Configs");
+        resetAct.InitAction((syncDelegate) => syncDelegate.Target = ResetConfigs, meta.id);
+        yield return resetAct;
 
         // Metadata
         DataFeedGroup modGroup = new DataFeedGroup();
@@ -283,24 +339,36 @@ public class DataFeedInjector
         string[] metadataGroup = new[] { "Metadata" };
 
         DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
-        idIndicator.InitBase("Id", path, metadataGroup, "HarmonyId");
-        idIndicator.InitSetupValue(field => field.Value = pluginId);
+        idIndicator.InitBase("Id", path, metadataGroup, "Mod ID");
+        idIndicator.InitSetupValue(field => field.Value = meta.id);
         yield return idIndicator;
+
+        if (!string.IsNullOrWhiteSpace(meta.author))
+        {
+            DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
+            authorsIndicator.InitBase("Author", path, metadataGroup, "Author(s)");
+            authorsIndicator.InitSetupValue(field => field.Value = meta.author);
+            yield return authorsIndicator;
+        }
 
         DataFeedIndicator<string> versionIndicator = new DataFeedIndicator<string>();
         versionIndicator.InitBase("Version", path, metadataGroup, "Version");
-        versionIndicator.InitSetupValue(field => field.Value = vers);
+        versionIndicator.InitSetupValue(field => field.Value = meta.version);
         yield return versionIndicator;
 
-        // DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
-        // authorsIndicator.InitBase("Authors", path, metadataGroup, "Authors");
-        // authorsIndicator.InitSetupValue(field => field.Value = module.Author);
-        // yield return authorsIndicator;
-        // 
-        // DataFeedIndicator<string> descriptionIndicator = new DataFeedIndicator<string>();
-        // descriptionIndicator.InitBase("Description", path, metadataGroup, "Description");
-        // descriptionIndicator.InitSetupValue(field => field.Value = module.Description);
-        // yield return descriptionIndicator;
+        if (!string.IsNullOrWhiteSpace(meta.link) && Uri.TryCreate(meta.link, UriKind.Absolute, out var uri))
+        {
+            var modHyperlink = new DataFeedAction();
+            modHyperlink.InitBase("Link", path, metadataGroup, $"Open Mod Page");
+            modHyperlink.InitAction((syncDelegate) =>
+            {
+                var btn = syncDelegate?.Slot;
+                if (btn == null) return;
+
+                btn.AttachComponent<Hyperlink>().URL.Value = uri;
+            });
+            yield return modHyperlink;
+        }
     }
 
     private static async IAsyncEnumerable<DataFeedItem> GetDummyAsync(DataFeedItem item)
@@ -309,7 +377,24 @@ public class DataFeedInjector
     }
 
     [SyncMethod(typeof(Delegate), null)]
-    private static void ResetConfigs()
+    private static void SaveConfigs(string pluginId)
+    {
+        ResoniteIntegratedModSettings.Log.LogDebug($"Saving Configs for {pluginId}");
+        if (pluginId == "BepInEx.Core")
+        {
+            ConfigFile.CoreConfig.Save();
+        }
+        else if (
+            NetChainloader.Instance.Plugins.TryGetValue(pluginId, out var pluginInfo) &&
+            pluginInfo.Instance is BasePlugin plugin
+        )
+        {
+            plugin.Config?.Save();
+        }
+    }
+
+    [SyncMethod(typeof(Delegate), null)]
+    private static void ResetConfigs(string pluginId)
     {
         try
         {
@@ -321,7 +406,6 @@ public class DataFeedInjector
 
             ConfigFile configFile;
 
-            string pluginId = CurrentPath[1];
             if (pluginId != "BepInEx.Core")
             {
                 PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);

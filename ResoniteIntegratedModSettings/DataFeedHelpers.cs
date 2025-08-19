@@ -1,11 +1,11 @@
-﻿using System;
+﻿using BepInEx.Configuration;
+using FrooxEngine;
+using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
-using BepInEx.Configuration;
-using FrooxEngine;
-using HarmonyLib;
 
 namespace ResoniteIntegratedModSettings;
 
@@ -14,6 +14,7 @@ public static class DataFeedHelpers
     public static readonly MethodInfo GenerateEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateEnumItemsAsyncMethod));
     public static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
     public static readonly MethodInfo GenerateValueField = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateValueFieldMethod));
+    public static readonly MethodInfo HandleFlagsEnumCategory = AccessTools.Method(typeof(DataFeedHelpers), nameof(HandleFlagsEnumCategoryMethod));
     
     public static DataFeedToggle GenerateToggle(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey, ConfigFile module)
     {
@@ -218,6 +219,73 @@ public static class DataFeedHelpers
         {
             parent.Destroyed -= ParentDestroyedHandler;
             field.Changed -= fieldChangedHandler;
+        }
+    }
+
+
+    internal static async IAsyncEnumerable<DataFeedItem> HandleFlagsEnumCategoryMethod<T>(IReadOnlyList<string> path, ConfigEntryBase key) where T : Enum
+    {
+        const string groupId = $"FlagsGroup";
+        DataFeedGroup group = new DataFeedGroup();
+        group.InitBase(groupId, path, null, key.Definition.Section + "." + key.Definition.Key);
+        yield return group;
+        string[] groupKeys = [groupId];
+
+        var enumType = typeof(T);
+        foreach (var val in Enum.GetValues(enumType))
+        {
+            if(val is not Enum e) continue;
+            var intValue = Convert.ToInt64(e);
+            if(intValue == 0) continue; // Skip zero value, as it is not a valid flag
+
+            var name = Enum.GetName(enumType, val);
+            DataFeedToggle toggle = new DataFeedToggle();
+            toggle.InitBase(name, path, groupKeys, name, $"Toggles the '{name}' enum flag.");
+            toggle.InitSetupValue(field =>
+            {
+                bool skipNextChange = false;
+
+                field.Value = ((T) (key.BoxedValue ?? default(T)!)).HasFlag(e);
+
+                field.SetupChangedHandlers(FieldChanged, key, KeyChanged);
+
+                return;
+
+                void FieldChanged(IChangeable _)
+                {
+                    if(skipNextChange)
+                    {
+                        skipNextChange = false;
+                        return;
+                    }
+                    var current = Convert.ToInt64(key.BoxedValue ?? default(T));
+                    var newValue = field.Value
+                        ? current | intValue
+                        : current & ~intValue;
+                    key.BoxedValue = Enum.ToObject(enumType, newValue);
+
+                    field.World.RunSynchronously(() =>
+                    {
+                        field.Value = ((T) (key.BoxedValue ?? default(T)!)).HasFlag(e);
+                    });
+                }
+
+                void KeyChanged(object sender, SettingChangedEventArgs ev)
+                {
+                    if (ev.ChangedSetting != key) return;
+
+                    var thingy = ((T) (ev.ChangedSetting.BoxedValue ?? default(T)!)).HasFlag(e);
+
+                    if (field.Value == thingy)
+                        return;
+
+                    field.World.RunSynchronously(() => {
+                        skipNextChange = true;
+                        field.Value = thingy;
+                    });
+                }
+            });
+            yield return toggle;
         }
     }
 }

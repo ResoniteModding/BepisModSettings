@@ -1,13 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using BepInEx;
+﻿using BepInEx;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
+using Elements.Core;
 using FrooxEngine;
 using HarmonyLib;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace ResoniteIntegratedModSettings;
 
@@ -31,6 +32,7 @@ public class ResoniteIntegratedModSettings : BaseResonitePlugin
         MethodInfo targetMethod = AccessTools.Method(typeof(SettingsDataFeed), nameof(SettingsDataFeed.Enumerate), new Type[] { typeof(IReadOnlyList<string>), typeof(IReadOnlyList<string>), typeof(string), typeof(object) });
         MethodInfo postfixMethod = AccessTools.Method(typeof(ResoniteIntegratedModSettings), nameof(EnumeratePostfix));
         HarmonyInstance.Patch(targetMethod, postfix: new HarmonyMethod(postfixMethod));
+        HarmonyInstance.PatchAll();
         
         Log.LogInfo($"Plugin {PluginGuid} is loaded!");
     }
@@ -49,5 +51,26 @@ public class ResoniteIntegratedModSettings : BaseResonitePlugin
             Log.LogError(ex.Message);
             return __result;
         }
+    }
+
+    [HarmonyPatch(typeof(SettingsDataFeed), nameof(SettingsDataFeed.PathSegmentName))]
+    private static class PathSegmentNamePatch
+    {
+        private static bool Prefix(string pathSegment, int depth, ref LocaleString __result)
+        {
+            __result = depth switch
+            {
+                1 => $"Settings.Category.{pathSegment}".AsLocaleKey(),
+                _ => $"Settings.{pathSegment}.Breadcrumb".AsLocaleKey()
+            };
+
+            return false;
+        }
+    }
+
+    public override bool Unload()
+    {
+        HarmonyInstance.UnpatchSelf();
+        return true;
     }
 }
