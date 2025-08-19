@@ -5,20 +5,24 @@ using System.Reflection;
 using BepInEx;
 using BepInEx.Logging;
 using BepInEx.NET.Common;
+using BepInExResoniteShim;
 using FrooxEngine;
 using HarmonyLib;
 
 namespace ResoniteIntegratedModSettings;
 
 [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-public class ResoniteIntegratedModSettings : BasePlugin
+[BepInDependency(BepInExResoniteShim.BepInExResoniteShim.GUID, BepInDependency.DependencyFlags.HardDependency)]
+public class ResoniteIntegratedModSettings : BaseResonitePlugin
 {
-    public const string PluginName = "ResoniteIntegratedModSettings";
-    public const string PluginGuid = "com.NepuShiro." + PluginName;
+    public const string PluginName = "Resonite Integrated Mod Settings";
+    public const string PluginGuid = "com.NepuShiro.ResoniteIntegratedModSettings";
     public const string PluginVersion = "1.0.0";
-    
+    public override string Author => "NepuShiro";
+    public override string Link => "https://github.com/NepuShiro/ResoniteIntegratedModSettings";
+
     internal new static ManualLogSource Log;
-    
+
     public override void Load()
     {
         // Plugin startup logic
@@ -35,7 +39,7 @@ public class ResoniteIntegratedModSettings : BasePlugin
     {
         try
         {
-            return path.Contains("BepinEx")
+            return path.Contains("BepInEx")
                     ? DataFeedInjector.CombineEnumerables(__result, path)
                     : __result;
         }

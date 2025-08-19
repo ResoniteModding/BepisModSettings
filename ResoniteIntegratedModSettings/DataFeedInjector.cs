@@ -31,27 +31,27 @@ public class DataFeedInjector
             LocaleData bepisLocale = new LocaleData
             {
                 LocaleCode = "en",
-                Authors = new List<string> { "BepinEx" },
+                Authors = new List<string> { "BepInEx" },
                 Messages = new Dictionary<string, string>
                 {
-                    { "Settings.BepinEx.Core.Breadcrumb", "BepinEx Core Config" }
+                    { "Settings.BepInEx.Core.Breadcrumb", "BepInEx Core Config" }
                 }
             };
             SettingsLocaleHelper.Update(bepisLocale);
 
             DataFeedCategory bepisCategory = new DataFeedCategory();
-            bepisCategory.InitBase("BepinEx.Core", path, null, "BepinEx Core Config");
+            bepisCategory.InitBase("BepInEx.Core", path, null, "BepInEx Core Config");
             yield return bepisCategory;
 
             DataFeedGroup bepisGroup = new DataFeedGroup();
-            bepisGroup.InitBase("BepinEx", path, null, "BepinEx");
+            bepisGroup.InitBase("BepInEx", path, null, "BepInEx");
             yield return bepisGroup;
 
             DataFeedGrid loadedPluginsGrid = new DataFeedGrid();
-            loadedPluginsGrid.InitBase("LoadedPluginsGrid", path, ["BepinEx"], "Loaded Plugins Grid");
+            loadedPluginsGrid.InitBase("LoadedPluginsGrid", path, ["BepInEx"], "Loaded Plugins Grid");
             yield return loadedPluginsGrid;
 
-            string[] loadedPluginsGroup = new[] { "BepinEx", "LoadedPluginsGrid" };
+            string[] loadedPluginsGroup = new[] { "BepInEx", "LoadedPluginsGrid" };
 
             if (NetChainloader.Instance.Plugins.Count > 0)
             {
@@ -65,7 +65,7 @@ public class DataFeedInjector
                     LocaleData localeData = new LocaleData
                     {
                         LocaleCode = "en",
-                        Authors = new List<string> { "BepinEx" },
+                        Authors = new List<string> { "BepInEx" },
                         Messages = new Dictionary<string, string>
                         {
                             { $"Settings.{moduleId}.Breadcrumb", metaData.Name }
@@ -79,7 +79,7 @@ public class DataFeedInjector
                 }
             }
         }
-        else if (path.Count == 2 && path[1] != "BepinEx.Core")
+        else if (path.Count == 2 && path[1] != "BepInEx.Core")
         {
             string pluginId = path[1];
 
@@ -115,7 +115,7 @@ public class DataFeedInjector
                 yield return item;
             }
         }
-        else if (path.Count == 2 && path[1] == "BepinEx.Core")
+        else if (path.Count == 2 && path[1] == "BepInEx.Core")
         {
             // Settings
             // DataFeedGroup settings = new DataFeedGroup();
@@ -132,7 +132,7 @@ public class DataFeedInjector
 
             ConfigFile config = ConfigFile.CoreConfig;
 
-            IAsyncEnumerable<DataFeedItem> things = EnumerateConfigs(config, "BepinEx Core Config", Utility.BepInExVersion.ToString(), "BepinEx.Core.Config", configsGroup, path);
+            IAsyncEnumerable<DataFeedItem> things = EnumerateConfigs(config, "BepInEx Core Config", Utility.BepInExVersion.ToString(), "BepInEx.Core.Config", configsGroup, path);
             await foreach (DataFeedItem item in things)
             {
                 yield return item;
@@ -322,7 +322,7 @@ public class DataFeedInjector
             ConfigFile configFile;
 
             string pluginId = CurrentPath[1];
-            if (pluginId != "BepinEx.Core")
+            if (pluginId != "BepInEx.Core")
             {
                 PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
 
@@ -369,7 +369,7 @@ public class DataFeedInjector
 
             ConfigFile configFile;
             string pluginId = CurrentPath[1];
-            if (pluginId != "BepinEx.Core")
+            if (pluginId != "BepInEx.Core")
             {
                 PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
 

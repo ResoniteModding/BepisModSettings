@@ -50,5 +50,13 @@
 		<Reference Include="0Harmony">
 			<HintPath>$(GamePath)BepInEx/core/0Harmony.dll</HintPath>
 		</Reference>
+		<Reference Include="BepInExResoniteShim">
+			<HintPath>$(GamePath)BepInEx/plugins/BepInExResoniteShim.dll</HintPath>
+		</Reference>
   </ItemGroup>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GamePath)BepInEx\plugins" />
+		<Message Text="Copied $(TargetFileName) to $(GamePath)BepInEx\plugins" Importance="high" />
+	</Target>
 </Project>

@@ -6,7 +6,7 @@ using FrooxEngine;
 namespace ResoniteIntegratedModSettings;
 
 [AutoRegisterSetting]
-[SettingCategory("BepinEx")]
+[SettingCategory("BepInEx")]
 public class BepisSettings : SettingComponent<BepisSettings>
 {
     private LocaleData _localeData;
@@ -18,11 +18,11 @@ public class BepisSettings : SettingComponent<BepisSettings>
         _localeData = new LocaleData
         {
             LocaleCode = "en",
-            Authors = new List<string> { "BepinEx" },
+            Authors = new List<string> { "BepInEx" },
             Messages = new Dictionary<string, string>
             {
-                { "Settings.Category.BepinEx", "BepinEx" },
-                { "Settings.BepinEx", "BepinEx" }
+                { "Settings.Category.BepInEx", "BepInEx" },
+                { "Settings.BepInEx", "BepInEx" }
             }
         };
         SettingsLocaleHelper.Update(_localeData);
