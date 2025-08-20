@@ -24,26 +24,15 @@ public class DataFeedInjector
 
     private static IReadOnlyList<string> CurrentPath { get; set; }
 
-    internal static async IAsyncEnumerable<DataFeedItem> CombineEnumerables(IAsyncEnumerable<DataFeedItem> original, IReadOnlyList<string> path)
+    internal static async IAsyncEnumerable<DataFeedItem> ReplaceEnumerable(IReadOnlyList<string> path)
     {
-        if (original == null) throw new ArgumentNullException(nameof(original));
-
         ResoniteIntegratedModSettings.Log.LogDebug($"Current Path: {string.Join(" -> ", path)}");
         CurrentPath = path;
 
         // Handle root category
         if (path.Count == 1)
         {
-            LocaleData bepisLocale = new LocaleData
-            {
-                LocaleCode = "en",
-                Authors = new List<string> { "BepInEx" },
-                Messages = new Dictionary<string, string>
-                {
-                    { "Settings.BepInEx.Core.Breadcrumb", "BepInEx Core Config" }
-                }
-            };
-            SettingsLocaleHelper.Update(bepisLocale);
+            SettingsLocaleHelper.AddLocaleString("Settings.BepInEx.Core.Breadcrumb", "BepInEx Core Config");
 
             DataFeedCategory bepisCategory = new DataFeedCategory();
             bepisCategory.InitBase("BepInEx.Core", path, null, "BepInEx Core Config");
@@ -68,16 +57,7 @@ public class DataFeedInjector
                     BepInPlugin metaData = plugin.Metadata;
                     string moduleId = metaData.GUID;
 
-                    LocaleData localeData = new LocaleData
-                    {
-                        LocaleCode = "en",
-                        Authors = new List<string> { "BepInEx" },
-                        Messages = new Dictionary<string, string>
-                        {
-                            { $"Settings.{moduleId}.Breadcrumb", metaData.Name }
-                        }
-                    };
-                    SettingsLocaleHelper.Update(localeData);
+                    SettingsLocaleHelper.AddLocaleString($"Settings.{moduleId}.Breadcrumb", metaData.Name);
 
                     DataFeedCategory loadedModule = new DataFeedCategory();
                     loadedModule.InitBase(moduleId, path, loadedPluginsGroup, metaData.Name, $"{metaData.Name}\n{metaData.GUID}\n({metaData.Version})");
@@ -89,7 +69,6 @@ public class DataFeedInjector
         else if (path.Count == 2)
         {
             string pluginId = path[1];
-
 
             ConfigFile file;
             ModMeta data;
@@ -121,12 +100,12 @@ public class DataFeedInjector
             // yield return settings;
 
             // Configs
-            //DataFeedResettableGroup configs = new DataFeedResettableGroup();
-            //configs.InitBase("Configs", path, null, "Configs");
-            //configs.InitResetAction(a => a.Target = ResetConfigs);
-            //yield return configs;
+            // DataFeedResettableGroup configs = new DataFeedResettableGroup();
+            // configs.InitBase("Configs", path, null, "Configs");
+            // configs.InitResetAction(a => a.Target = ResetConfigs);
+            // yield return configs;
 
-            //string[] configsGroup = new[] { "Configs" };
+            // string[] configsGroup = new[] { "Configs" };
 
             if (file.Count == 0)
             {
@@ -227,18 +206,9 @@ public class DataFeedInjector
 
                         try
                         {
-                            LocaleData localeData = new LocaleData
-                            {
-                                LocaleCode = "en",
-                                Authors = new List<string> { "BepInEx" },
-                                Messages = new Dictionary<string, string>
-                                {
-                                    { $"Settings.{key}.Breadcrumb", config.Definition.Key.BeautifyName() }
-                                }
-                            };
-                            SettingsLocaleHelper.Update(localeData);
+                            SettingsLocaleHelper.AddLocaleString($"Settings.{key}.Breadcrumb", config.Definition.Key);
 
-                            categoryHandlers.Add(key, (path2) => (IAsyncEnumerable<DataFeedItem>) DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
+                            categoryHandlers.Add(key, path2 => (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
                             flagsEnumItem = new DataFeedCategory();
                             flagsEnumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {config.BoxedValue}", config.Description.Description);
                         }
@@ -257,7 +227,7 @@ public class DataFeedInjector
 
                         try
                         {
-                            enumItem = (DataFeedItem) DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
+                            enumItem = (DataFeedItem)DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
                         }
                         catch (Exception e)
                         {
@@ -278,7 +248,7 @@ public class DataFeedInjector
 
                         try
                         {
-                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>) DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, config, configFile]);
+                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, config, configFile]);
                         }
                         catch (Exception e)
                         {
@@ -301,7 +271,7 @@ public class DataFeedInjector
 
                     try
                     {
-                        valueItem = (DataFeedItem) DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
+                        valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
                     }
                     catch (Exception e)
                     {
@@ -323,12 +293,12 @@ public class DataFeedInjector
 
         var saveAct = new DataFeedValueAction<string>();
         saveAct.InitBase("SaveConfig", path, groupKeys, $"Save Config File", "Save the currently selected Plugin's Configs");
-        saveAct.InitAction((syncDelegate) => syncDelegate.Target = SaveConfigs, meta.id);
+        saveAct.InitAction(syncDelegate => syncDelegate.Target = SaveConfigs, meta.id);
         yield return saveAct;
 
         var resetAct = new DataFeedValueAction<string>();
         resetAct.InitBase("ResetConfig", path, groupKeys, $"Reset ALL Config Categories", "Reset all categories from the currently selected Plugin's Configs");
-        resetAct.InitAction((syncDelegate) => syncDelegate.Target = ResetConfigs, meta.id);
+        resetAct.InitAction(syncDelegate => syncDelegate.Target = ResetConfigs, meta.id);
         yield return resetAct;
 
         // Metadata
@@ -360,12 +330,12 @@ public class DataFeedInjector
         {
             var modHyperlink = new DataFeedAction();
             modHyperlink.InitBase("Link", path, metadataGroup, $"Open Mod Page");
-            modHyperlink.InitAction((syncDelegate) =>
+            modHyperlink.InitAction(syncDelegate =>
             {
-                var btn = syncDelegate?.Slot;
-                if (btn == null) return;
+                var slot = syncDelegate?.Slot;
+                if (slot == null) return;
 
-                btn.AttachComponent<Hyperlink>().URL.Value = uri;
+                slot.AttachComponent<Hyperlink>().URL.Value = uri;
             });
             yield return modHyperlink;
         }

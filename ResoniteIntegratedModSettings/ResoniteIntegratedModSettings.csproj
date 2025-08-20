@@ -25,33 +25,43 @@
   <ItemGroup>
 		<Reference Include="FrooxEngine">
 			<HintPath>$(GamePath)FrooxEngine.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="Elements.Core">
 			<HintPath>$(GamePath)Elements.Core.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="Elements.Assets">
 			<HintPath>$(GamePath)Elements.Assets.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="Elements.Data">
 			<HintPath>$(GamePath)Elements.Data.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="BepInEx.NET.Common">
 			<HintPath>$(GamePath)BepInEx/core/BepInEx.NET.Common.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="BepInEx.NET.CoreCLR">
 			<HintPath>$(GamePath)BepInEx/core/BepInEx.NET.CoreCLR.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="BepInEx.Core">
 			<HintPath>$(GamePath)BepInEx/core/BepInEx.Core.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="SemanticVersioning">
 			<HintPath>$(GamePath)BepInEx/core/SemanticVersioning.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="0Harmony">
 			<HintPath>$(GamePath)BepInEx/core/0Harmony.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
 		<Reference Include="BepInExResoniteShim">
 			<HintPath>$(GamePath)BepInEx/plugins/BepInExResoniteShim.dll</HintPath>
+            <Private>False</Private>
 		</Reference>
   </ItemGroup>
 

@@ -37,12 +37,12 @@ public class ResoniteIntegratedModSettings : BaseResonitePlugin
         Log.LogInfo($"Plugin {PluginGuid} is loaded!");
     }
     
-    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData)
+    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path/*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
     {
         try
         {
             return path.Contains("BepInEx")
-                    ? DataFeedInjector.CombineEnumerables(__result, path)
+                    ? DataFeedInjector.ReplaceEnumerable(path)
                     : __result;
         }
         catch (Exception ex)

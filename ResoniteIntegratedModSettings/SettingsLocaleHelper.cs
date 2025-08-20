@@ -1,4 +1,7 @@
-﻿using Elements.Assets;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Elements.Assets;
 using FrooxEngine;
 
 namespace ResoniteIntegratedModSettings;
@@ -8,7 +11,24 @@ public static class SettingsLocaleHelper
     private static StaticLocaleProvider _localeProvider;
     private static string _lastOverrideLocale;
     private const string OverrideLocaleString = "somethingRandomJustToMakeItChange";
+    
+    private static readonly HashSet<LocaleData> LocaleData = new HashSet<LocaleData>();
 
+    public static void AddLocaleString(string rawString, string localeString)
+    {
+        LocaleData localeData = new LocaleData
+        {
+            LocaleCode = "en",
+            Authors = new List<string> { "BepInEx" },
+            Messages = new Dictionary<string, string>
+            {
+                { rawString, localeString }
+            }
+        };
+        
+        Update(localeData);
+    }
+    
     public static void Update(LocaleData localeData)
     {
         UpdateDelayed(localeData);
@@ -22,10 +42,10 @@ public static class SettingsLocaleHelper
 
     private static void UpdateIntern(LocaleData localeData)
     {
-        _localeProvider = Userspace.UserspaceWorld.GetCoreLocale();
+        _localeProvider = Userspace.UserspaceWorld?.GetCoreLocale();
         if (_localeProvider?.Asset?.Data is null)
         {
-            Userspace.UserspaceWorld.RunSynchronously(() => UpdateIntern(localeData));
+            Userspace.UserspaceWorld?.RunSynchronously(() => UpdateIntern(localeData));
         }
         else
         {
@@ -35,7 +55,13 @@ public static class SettingsLocaleHelper
 
     private static void UpdateLocale(LocaleData localeData)
     {
-        if (_localeProvider?.Asset?.Data != null)
+        string firstKey = localeData.Messages.Keys.FirstOrDefault();
+        if (firstKey == null) return;
+
+        bool alreadyExists = LocaleData.Any(ld => ld.Messages.ContainsKey(firstKey));
+        if (alreadyExists) return;
+        
+        if (_localeProvider?.Asset?.Data != null && LocaleData.Add(localeData))
         {
             _localeProvider.Asset.Data.LoadDataAdditively(localeData);
 
@@ -48,7 +74,7 @@ public static class SettingsLocaleHelper
             _localeProvider.OverrideLocale.Value = OverrideLocaleString;
             Userspace.UserspaceWorld.RunInUpdates(1, () => { _localeProvider.OverrideLocale.Value = _lastOverrideLocale; });
         }
-        else
+        else if (_localeProvider?.Asset?.Data == null)
         {
             ResoniteIntegratedModSettings.Log.LogError("Locale data is null when it shouldn't be!");
         }

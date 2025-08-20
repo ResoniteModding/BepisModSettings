@@ -9,23 +9,12 @@ namespace ResoniteIntegratedModSettings;
 [SettingCategory("BepInEx")]
 public class BepisSettings : SettingComponent<BepisSettings>
 {
-    private LocaleData _localeData;
-
     public override bool UserspaceOnly => true;
 
     protected override void OnStart()
     {
-        _localeData = new LocaleData
-        {
-            LocaleCode = "en",
-            Authors = new List<string> { "BepInEx" },
-            Messages = new Dictionary<string, string>
-            {
-                { "Settings.Category.BepInEx", "BepInEx" },
-                { "Settings.BepInEx", "BepInEx" }
-            }
-        };
-        SettingsLocaleHelper.Update(_localeData);
+        SettingsLocaleHelper.AddLocaleString("Settings.Category.BepInEx", "BepInEx");
+        SettingsLocaleHelper.AddLocaleString("Settings.BepInEx", "BepInEx");
     }
 
     protected override void InitializeSyncMembers()
