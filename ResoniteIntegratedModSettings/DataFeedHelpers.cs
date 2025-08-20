@@ -15,27 +15,27 @@ public static class DataFeedHelpers
     public static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
     public static readonly MethodInfo GenerateValueField = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateValueFieldMethod));
     public static readonly MethodInfo HandleFlagsEnumCategory = AccessTools.Method(typeof(DataFeedHelpers), nameof(HandleFlagsEnumCategoryMethod));
-    
-    public static DataFeedToggle GenerateToggle(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey, ConfigFile module)
+
+    public static DataFeedToggle GenerateToggle(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
     {
         DataFeedToggle toggle = new DataFeedToggle();
         toggle.InitBase($"{key}.Toggle", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
-        toggle.InitSetupValue(field => field.SyncWithConfigKey(configKey, module));
+        toggle.InitSetupValue(field => field.SyncWithConfigKey(configKey));
 
         return toggle;
     }
 
-    public static DataFeedValueField<T> GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey, ConfigFile module)
+    public static DataFeedValueField<T> GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
     {
         DataFeedValueField<T> valueField = new DataFeedValueField<T>();
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
-        valueField.InitSetupValue(field => field.SyncWithConfigKey(configKey, module));
+        valueField.InitSetupValue(field => field.SyncWithConfigKey(configKey));
 
         return valueField;
     }
 
-    private static async IAsyncEnumerable<DataFeedItem> GenerateNullableEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey, ConfigFile module)
-        where T : unmanaged, Enum
+    private static async IAsyncEnumerable<DataFeedItem> GenerateNullableEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
+            where T : unmanaged, Enum
     {
         await Task.CompletedTask;
 
@@ -59,22 +59,24 @@ public static class DataFeedHelpers
             MethodInfo method = AccessTools.Method(typeof(DataFeedHelpers), nameof(SyncWithNullableConfigKeyHasValue)).MakeGenericMethod(configKey.SettingType);
             if (method == null) return;
 
-            method.Invoke(null, new object[] { configKey, module });
+            method.Invoke(null, new object[] { configKey });
         });
         yield return nullableToggle;
 
-        IAsyncEnumerable<DataFeedItem> enumItems = (IAsyncEnumerable<DataFeedItem>)GenerateEnumItemsAsync
-            .MakeGenericMethod(typeof(T))
-            .Invoke(null, [path, nullableGroupKeys, configKey]);
-
-        await foreach (DataFeedItem item in enumItems)
-            yield return item;
+        IAsyncEnumerable<DataFeedItem> enumItems = (IAsyncEnumerable<DataFeedItem>)GenerateEnumItemsAsync.MakeGenericMethod(typeof(T)).Invoke(null, [path, nullableGroupKeys, configKey]);
+        if (enumItems != null)
+        {
+            await foreach (DataFeedItem item in enumItems)
+            {
+                yield return item;
+            }
+        }
     }
 
-    private static void SyncWithConfigKey<T>(this IField<T> field, ConfigEntryBase configKey, ConfigFile module)
+    private static void SyncWithConfigKey<T>(this IField<T> field, ConfigEntryBase configKey)
     {
         field.Value = (T)(configKey.BoxedValue ?? default(T)!);
-        
+
         field.SetupChangedHandlers(FieldChanged, configKey, KeyChanged);
 
         return;
@@ -82,16 +84,13 @@ public static class DataFeedHelpers
         void FieldChanged(IChangeable _)
         {
             configKey.BoxedValue = field.Value;
-            field.World.RunSynchronously(() =>
-            {
-                field.Value = (T)(configKey.BoxedValue ?? default(T)!);
-            });
+            field.World.RunSynchronously(() => { field.Value = (T)(configKey.BoxedValue ?? default(T)!); });
         }
 
         void KeyChanged(object sender, SettingChangedEventArgs e)
         {
             if (e.ChangedSetting != configKey) return;
-            
+
             if (Equals(field.Value, e.ChangedSetting.BoxedValue))
                 return;
 
@@ -99,18 +98,18 @@ public static class DataFeedHelpers
         }
     }
 
-    private static DataFeedItem GenerateEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey, ConfigFile module)
-        where T : unmanaged, Enum
+    private static DataFeedItem GenerateEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
+            where T : unmanaged, Enum
     {
         DataFeedEnum<T> enumField = new DataFeedEnum<T>();
         enumField.InitBase($"{key}.Enum", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
-        enumField.InitSetupValue(field => field.SyncWithConfigKey(configKey, module));
+        enumField.InitSetupValue(field => field.SyncWithConfigKey(configKey));
 
         return enumField;
     }
 
     private static void SyncWithNullableConfigKeyHasValue<T>(this IField<bool> field, ConfigEntryBase configKey)
-        where T : struct
+            where T : struct
     {
         object value = configKey.BoxedValue;
         field.Value = ((T?)value).HasValue;
@@ -135,7 +134,7 @@ public static class DataFeedHelpers
         {
             if (settingChangedEventArgs.ChangedSetting != configKey)
                 return;
-            
+
             if (field.Value == ((T?)value).HasValue)
                 return;
 
@@ -167,85 +166,31 @@ public static class DataFeedHelpers
         }
     }
 
-    internal static void SyncWithConfigKey<T>(this IField<T> field, string harmonyId)
-    {
-        Comment comment = field.FindNearestParent<Slot>()?.GetComponentOrAttach<Comment>();
-        if (comment != null)
-        {
-            comment.Text.Value = harmonyId;
-        }
-
-        field.SetupChangedHandlers(FieldChanged);
-
-        return;
-
-        void FieldChanged(IChangeable _)
-        {
-            field.World.RunSynchronously(async void () =>
-            {
-                try
-                {
-                    if (field is not IField<bool> boolField) return;
-
-                    string harmonyId1 = null;
-                    Comment comment1 = field.FindNearestParent<Slot>()?.GetComponentOrAttach<Comment>();
-                    if (comment1 != null)
-                    {
-                        harmonyId1 = comment1.Text.Value;
-                    }
-
-                    if (string.IsNullOrEmpty(harmonyId1)) return;
-
-                    // boolField.Value = await SussyHandler.TryToggleAutoLoadModule(harmonyId1, boolField.Value);
-                }
-                catch (Exception e)
-                {
-                    ResoniteIntegratedModSettings.Log.LogError(e);
-                }
-            });
-        }
-    }
-
-    private static void SetupChangedHandlers(this IField field, Action<IChangeable> fieldChangedHandler)
-    {
-        Component parent = field.FindNearestParent<Component>();
-
-        field.Changed += fieldChangedHandler;
-        parent.Destroyed += ParentDestroyedHandler;
-
-        return;
-
-        void ParentDestroyedHandler(IDestroyable _)
-        {
-            parent.Destroyed -= ParentDestroyedHandler;
-            field.Changed -= fieldChangedHandler;
-        }
-    }
-
-
     internal static async IAsyncEnumerable<DataFeedItem> HandleFlagsEnumCategoryMethod<T>(IReadOnlyList<string> path, ConfigEntryBase key) where T : Enum
     {
-        const string groupId = $"FlagsGroup";
+        await Task.CompletedTask;
+
+        const string groupId = "FlagsGroup";
         DataFeedGroup group = new DataFeedGroup();
         group.InitBase(groupId, path, null, key.Definition.Section + "." + key.Definition.Key);
         yield return group;
         string[] groupKeys = [groupId];
 
         var enumType = typeof(T);
-        foreach (var val in Enum.GetValues(enumType))
+        foreach (object val in Enum.GetValues(enumType))
         {
-            if(val is not Enum e) continue;
-            var intValue = Convert.ToInt64(e);
-            if(intValue == 0) continue; // Skip zero value, as it is not a valid flag
+            if (val is not Enum e) continue;
+            long intValue = Convert.ToInt64(e);
+            if (intValue == 0) continue; // Skip zero value, as it is not a valid flag
 
-            var name = Enum.GetName(enumType, val);
+            string name = Enum.GetName(enumType, val);
             DataFeedToggle toggle = new DataFeedToggle();
             toggle.InitBase(name, path, groupKeys, name, $"Toggles the '{name}' enum flag.");
             toggle.InitSetupValue(field =>
             {
                 bool skipNextChange = false;
 
-                field.Value = ((T) (key.BoxedValue ?? default(T)!)).HasFlag(e);
+                field.Value = ((T)(key.BoxedValue ?? default(T)!)).HasFlag(e);
 
                 field.SetupChangedHandlers(FieldChanged, key, KeyChanged);
 
@@ -253,33 +198,32 @@ public static class DataFeedHelpers
 
                 void FieldChanged(IChangeable _)
                 {
-                    if(skipNextChange)
+                    if (skipNextChange)
                     {
                         skipNextChange = false;
                         return;
                     }
-                    var current = Convert.ToInt64(key.BoxedValue ?? default(T));
-                    var newValue = field.Value
-                        ? current | intValue
-                        : current & ~intValue;
+
+                    long current = Convert.ToInt64(key.BoxedValue ?? default(T));
+                    long newValue = field.Value
+                            ? current | intValue
+                            : current & ~intValue;
                     key.BoxedValue = Enum.ToObject(enumType, newValue);
 
-                    field.World.RunSynchronously(() =>
-                    {
-                        field.Value = ((T) (key.BoxedValue ?? default(T)!)).HasFlag(e);
-                    });
+                    field.World.RunSynchronously(() => { field.Value = ((T)(key.BoxedValue ?? default(T)!)).HasFlag(e); });
                 }
 
                 void KeyChanged(object sender, SettingChangedEventArgs ev)
                 {
                     if (ev.ChangedSetting != key) return;
 
-                    var thingy = ((T) (ev.ChangedSetting.BoxedValue ?? default(T)!)).HasFlag(e);
+                    bool thingy = ((T)(ev.ChangedSetting.BoxedValue ?? default(T)!)).HasFlag(e);
 
                     if (field.Value == thingy)
                         return;
 
-                    field.World.RunSynchronously(() => {
+                    field.World.RunSynchronously(() =>
+                    {
                         skipNextChange = true;
                         field.Value = thingy;
                     });

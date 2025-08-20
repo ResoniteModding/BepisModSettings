@@ -12,8 +12,6 @@ public static class SettingsLocaleHelper
     private static string _lastOverrideLocale;
     private const string OverrideLocaleString = "somethingRandomJustToMakeItChange";
     
-    private static readonly HashSet<LocaleData> LocaleData = new HashSet<LocaleData>();
-
     public static void AddLocaleString(string rawString, string localeString)
     {
         LocaleData localeData = new LocaleData
@@ -25,11 +23,11 @@ public static class SettingsLocaleHelper
                 { rawString, localeString }
             }
         };
-        
+
         Update(localeData);
     }
-    
-    public static void Update(LocaleData localeData)
+
+    private static void Update(LocaleData localeData)
     {
         UpdateDelayed(localeData);
         Settings.RegisterValueChanges<LocaleSettings>(_ => UpdateDelayed(localeData));
@@ -58,11 +56,11 @@ public static class SettingsLocaleHelper
         string firstKey = localeData.Messages.Keys.FirstOrDefault();
         if (firstKey == null) return;
 
-        bool alreadyExists = LocaleData.Any(ld => ld.Messages.ContainsKey(firstKey));
-        if (alreadyExists) return;
-        
-        if (_localeProvider?.Asset?.Data != null && LocaleData.Add(localeData))
+        if (_localeProvider?.Asset?.Data != null)
         {
+            bool alreadyExists = _localeProvider.Asset.Data.Messages.Any(ld => ld.Key == firstKey);
+            if (alreadyExists) return;
+            
             _localeProvider.Asset.Data.LoadDataAdditively(localeData);
 
             // force asset update for locale provider

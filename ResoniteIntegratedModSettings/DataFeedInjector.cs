@@ -2,25 +2,20 @@
 using BepInEx.Configuration;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
-using Elements.Assets;
 using Elements.Core;
 using FrooxEngine;
 using FrooxEngine.UIX;
-using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Security.Principal;
 using System.Threading.Tasks;
-using static FrooxEngine.LegacySegmentCircleMenuController;
-using static FrooxEngine.SettingsDataFeed;
 
 namespace ResoniteIntegratedModSettings;
 
 public class DataFeedInjector
 {
-    private static readonly Type _dummyType = typeof(dummy);
+    private static readonly Type DummyType = typeof(dummy);
 
     private static IReadOnlyList<string> CurrentPath { get; set; }
 
@@ -71,12 +66,12 @@ public class DataFeedInjector
             string pluginId = path[1];
 
             ConfigFile file;
-            ModMeta data;
+            ModMeta meta;
 
             if (pluginId == "BepInEx.Core")
             {
                 file = ConfigFile.CoreConfig;
-                data = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), pluginId, null, null);
+                meta = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), pluginId, null, null);
             }
             else
             {
@@ -86,13 +81,20 @@ public class DataFeedInjector
                 BepInPlugin metaData = MetadataHelper.GetMetadata(plugin);
 
                 file = plugin.Config;
-                data = new ModMeta(metaData.Name, metaData.Version.ToString(), pluginId, null, null);
+                meta = new ModMeta(metaData.Name, metaData.Version.ToString(), pluginId, null, null);
                 if (plugin is BaseResonitePlugin resonitePlugin)
                 {
-                    data.author = resonitePlugin.Author;
-                    data.link = resonitePlugin.Link;
+                    meta.Author = resonitePlugin.Author;
+                    meta.Link = resonitePlugin.Link;
                 }
             }
+            
+            if (string.IsNullOrWhiteSpace(meta.Name))
+                meta.Name = "<i>Unknown</i>";
+            if (string.IsNullOrWhiteSpace(meta.Version))
+                meta.Version = "<i>Unknown</i>";
+            if (string.IsNullOrWhiteSpace(meta.ID))
+                meta.ID = "<i>Unknown</i>";
 
             // Settings
             // DataFeedGroup settings = new DataFeedGroup();
@@ -113,16 +115,57 @@ public class DataFeedInjector
                 noConfigs.InitBase("NoConfigs", path, null, "This Plugin has No Configs");
                 yield return noConfigs;
             }
-
-            IAsyncEnumerable<DataFeedItem> things = EnumerateConfigs(file, data, null, path);
-            await foreach (DataFeedItem item in things)
+            else
             {
-                yield return item;
+                IAsyncEnumerable<DataFeedItem> things = EnumerateConfigs(file, meta, path);
+                await foreach (DataFeedItem item in things)
+                {
+                    yield return item;
+                }
+            }
+
+            // Metadata
+            DataFeedGroup modGroup = new DataFeedGroup();
+            modGroup.InitBase("Metadata", path, null, "Metadata");
+            yield return modGroup;
+
+            string[] metadataGroup = new[] { "Metadata" };
+
+            DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
+            idIndicator.InitBase("Id", path, metadataGroup, "Mod ID");
+            idIndicator.InitSetupValue(field => field.Value = meta.ID);
+            yield return idIndicator;
+
+            if (!string.IsNullOrWhiteSpace(meta.Author))
+            {
+                DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
+                authorsIndicator.InitBase("Author", path, metadataGroup, "Author(s)");
+                authorsIndicator.InitSetupValue(field => field.Value = meta.Author);
+                yield return authorsIndicator;
+            }
+
+            DataFeedIndicator<string> versionIndicator = new DataFeedIndicator<string>();
+            versionIndicator.InitBase("Version", path, metadataGroup, "Version");
+            versionIndicator.InitSetupValue(field => field.Value = meta.Version);
+            yield return versionIndicator;
+
+            if (!string.IsNullOrWhiteSpace(meta.Link) && Uri.TryCreate(meta.Link, UriKind.Absolute, out var uri))
+            {
+                var modHyperlink = new DataFeedAction();
+                modHyperlink.InitBase("Link", path, metadataGroup, "Open Mod Page");
+                modHyperlink.InitAction(syncDelegate =>
+                {
+                    var slot = syncDelegate?.Slot;
+                    if (slot == null) return;
+
+                    slot.AttachComponent<Hyperlink>().URL.Value = uri;
+                });
+                yield return modHyperlink;
             }
         }
         else if (path.Count >= 3)
         {
-            if (categoryHandlers.TryGetValue(path.Last(), out var handler))
+            if (CategoryHandlers.TryGetValue(path[^1], out Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> handler))
             {
                 await foreach (DataFeedItem item in handler(path))
                 {
@@ -138,21 +181,14 @@ public class DataFeedInjector
         }
     }
 
-    static Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>> categoryHandlers = new();
+    private static readonly Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>> CategoryHandlers = new Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>>();
 
-    record struct ModMeta(string name, string version, string id, string author, string link);
+    private record struct ModMeta(string Name, string Version, string ID, string Author, string Link);
 
-    private static async IAsyncEnumerable<DataFeedItem> EnumerateConfigs(ConfigFile configFile, ModMeta meta, IReadOnlyList<string> configsGroup, IReadOnlyList<string> path)
+    private static async IAsyncEnumerable<DataFeedItem> EnumerateConfigs(ConfigFile configFile, ModMeta meta, IReadOnlyList<string> path)
     {
         // Used for enum config keys. basically you can define a function which will display a subcategory of this category.
-        categoryHandlers.Clear();
-
-        if (string.IsNullOrWhiteSpace(meta.name))
-            meta.name = "<i>Unknown</i>";
-        if (string.IsNullOrWhiteSpace(meta.version))
-            meta.name = "<i>Unknown</i>";
-        if (string.IsNullOrWhiteSpace(meta.id))
-            meta.name = "<i>Unknown</i>";
+        CategoryHandlers.Clear();
 
         if (configFile.Count > 0)
         {
@@ -166,7 +202,7 @@ public class DataFeedInjector
                 if (sections.Add(section))
                 {
                     DataFeedResettableGroup configs = new DataFeedResettableGroup();
-                    configs.InitBase(section, path, configsGroup, section);
+                    configs.InitBase(section, path, null, section);
                     configs.InitResetAction(a =>
                     {
                         a.Target = ResetConfigSection;
@@ -186,9 +222,9 @@ public class DataFeedInjector
 
                 added.Add(key);
 
-                string[] groupingKeys = configsGroup?.Concat([section]).ToArray() ?? [section];
+                string[] groupingKeys = [section];
 
-                if (valueType == _dummyType)
+                if (valueType == DummyType)
                 {
                     DataFeedValueField<dummy> dummyField = new DataFeedValueField<dummy>();
                     dummyField.InitBase(key, path, groupingKeys, config.Definition.Key, config.Description.Description);
@@ -196,48 +232,35 @@ public class DataFeedInjector
                 }
                 else if (valueType == typeof(bool))
                 {
-                    yield return DataFeedHelpers.GenerateToggle(key, path, groupingKeys, config, configFile);
+                    yield return DataFeedHelpers.GenerateToggle(key, path, groupingKeys, config);
                 }
                 else if (valueType.IsEnum)
                 {
-                    if (valueType.GetCustomAttribute<FlagsAttribute>() != null)
+                    DataFeedItem enumItem;
+                    
+                    try
                     {
-                        DataFeedItem flagsEnumItem;
-
-                        try
+                        if (valueType.GetCustomAttribute<FlagsAttribute>() != null)
                         {
-                            SettingsLocaleHelper.AddLocaleString($"Settings.{key}.Breadcrumb", config.Definition.Key);
+                            SettingsLocaleHelper.AddLocaleString($"Settings.{key}.Breadcrumb", initKey);
 
-                            categoryHandlers.Add(key, path2 => (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
-                            flagsEnumItem = new DataFeedCategory();
-                            flagsEnumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {config.BoxedValue}", config.Description.Description);
+                            CategoryHandlers.Add(key, path2 => (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
+                            enumItem = new DataFeedCategory();
+                            enumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {config.BoxedValue}", config.Description.Description);
                         }
-                        catch (Exception e)
+                        else
                         {
-                            ResoniteIntegratedModSettings.Log.LogError(e);
-                            flagsEnumItem = new DataFeedValueField<dummy>();
-                            flagsEnumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
+                            enumItem = (DataFeedItem)DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config]);
                         }
-
-                        yield return flagsEnumItem;
                     }
-                    else
+                    catch (Exception e)
                     {
-                        DataFeedItem enumItem;
-
-                        try
-                        {
-                            enumItem = (DataFeedItem)DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
-                        }
-                        catch (Exception e)
-                        {
-                            ResoniteIntegratedModSettings.Log.LogError(e);
-                            enumItem = new DataFeedValueField<dummy>();
-                            enumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
-                        }
-
-                        yield return enumItem;
+                        ResoniteIntegratedModSettings.Log.LogError(e);
+                        enumItem = new DataFeedValueField<dummy>();
+                        enumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
                     }
+                    
+                    yield return enumItem;
                 }
                 else if (valueType.IsNullable())
                 {
@@ -248,7 +271,7 @@ public class DataFeedInjector
 
                         try
                         {
-                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, config, configFile]);
+                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, config]);
                         }
                         catch (Exception e)
                         {
@@ -271,7 +294,7 @@ public class DataFeedInjector
 
                     try
                     {
-                        valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config, configFile]);
+                        valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config]);
                     }
                     catch (Exception e)
                     {
@@ -285,64 +308,27 @@ public class DataFeedInjector
             }
         }
 
-        const string groupId = $"ActionsGroup";
+        const string groupId = "ActionsGroup";
         DataFeedGroup group = new DataFeedGroup();
         group.InitBase(groupId, path, null, "Actions");
         yield return group;
         string[] groupKeys = [groupId];
 
-        var saveAct = new DataFeedValueAction<string>();
-        saveAct.InitBase("SaveConfig", path, groupKeys, $"Save Config File", "Save the currently selected Plugin's Configs");
-        saveAct.InitAction(syncDelegate => syncDelegate.Target = SaveConfigs, meta.id);
+        DataFeedValueAction<string> saveAct = new DataFeedValueAction<string>();
+        saveAct.InitBase("SaveConfig", path, groupKeys, "Save Config File", "Save the currently selected Plugin's Configs");
+        saveAct.InitAction(syncDelegate => syncDelegate.Target = SaveConfigs, meta.ID);
         yield return saveAct;
 
-        var resetAct = new DataFeedValueAction<string>();
-        resetAct.InitBase("ResetConfig", path, groupKeys, $"Reset ALL Config Categories", "Reset all categories from the currently selected Plugin's Configs");
-        resetAct.InitAction(syncDelegate => syncDelegate.Target = ResetConfigs, meta.id);
+        DataFeedValueAction<string> resetAct = new DataFeedValueAction<string>();
+        resetAct.InitBase("ResetConfig", path, groupKeys, "Reset ALL Config Categories", "Reset all categories from the currently selected Plugin's Configs");
+        resetAct.InitAction(syncDelegate => syncDelegate.Target = ResetConfigs, meta.ID);
         yield return resetAct;
-
-        // Metadata
-        DataFeedGroup modGroup = new DataFeedGroup();
-        modGroup.InitBase("Metadata", path, null, "Metadata");
-        yield return modGroup;
-
-        string[] metadataGroup = new[] { "Metadata" };
-
-        DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
-        idIndicator.InitBase("Id", path, metadataGroup, "Mod ID");
-        idIndicator.InitSetupValue(field => field.Value = meta.id);
-        yield return idIndicator;
-
-        if (!string.IsNullOrWhiteSpace(meta.author))
-        {
-            DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
-            authorsIndicator.InitBase("Author", path, metadataGroup, "Author(s)");
-            authorsIndicator.InitSetupValue(field => field.Value = meta.author);
-            yield return authorsIndicator;
-        }
-
-        DataFeedIndicator<string> versionIndicator = new DataFeedIndicator<string>();
-        versionIndicator.InitBase("Version", path, metadataGroup, "Version");
-        versionIndicator.InitSetupValue(field => field.Value = meta.version);
-        yield return versionIndicator;
-
-        if (!string.IsNullOrWhiteSpace(meta.link) && Uri.TryCreate(meta.link, UriKind.Absolute, out var uri))
-        {
-            var modHyperlink = new DataFeedAction();
-            modHyperlink.InitBase("Link", path, metadataGroup, $"Open Mod Page");
-            modHyperlink.InitAction(syncDelegate =>
-            {
-                var slot = syncDelegate?.Slot;
-                if (slot == null) return;
-
-                slot.AttachComponent<Hyperlink>().URL.Value = uri;
-            });
-            yield return modHyperlink;
-        }
     }
 
     private static async IAsyncEnumerable<DataFeedItem> GetDummyAsync(DataFeedItem item)
     {
+        await Task.CompletedTask;
+        
         yield return item;
     }
 

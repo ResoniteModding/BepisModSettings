@@ -12,13 +12,13 @@ using System.Reflection;
 
 namespace ResoniteIntegratedModSettings;
 
-[BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+[BepInPlugin(Guid, Name, Version)]
 [BepInDependency(BepInExResoniteShim.BepInExResoniteShim.GUID, BepInDependency.DependencyFlags.HardDependency)]
 public class ResoniteIntegratedModSettings : BaseResonitePlugin
 {
-    public const string PluginName = "Resonite Integrated Mod Settings";
-    public const string PluginGuid = "com.NepuShiro.ResoniteIntegratedModSettings";
-    public const string PluginVersion = "1.0.0";
+    public const string Name = "Resonite Integrated Mod Settings";
+    public const string Guid = "com.NepuShiro.ResoniteIntegratedModSettings";
+    public const string Version = "1.0.0";
     public override string Author => "NepuShiro";
     public override string Link => "https://github.com/NepuShiro/ResoniteIntegratedModSettings";
 
@@ -28,16 +28,16 @@ public class ResoniteIntegratedModSettings : BaseResonitePlugin
     {
         // Plugin startup logic
         Log = base.Log;
-        
+
         MethodInfo targetMethod = AccessTools.Method(typeof(SettingsDataFeed), nameof(SettingsDataFeed.Enumerate), new Type[] { typeof(IReadOnlyList<string>), typeof(IReadOnlyList<string>), typeof(string), typeof(object) });
         MethodInfo postfixMethod = AccessTools.Method(typeof(ResoniteIntegratedModSettings), nameof(EnumeratePostfix));
         HarmonyInstance.Patch(targetMethod, postfix: new HarmonyMethod(postfixMethod));
         HarmonyInstance.PatchAll();
-        
-        Log.LogInfo($"Plugin {PluginGuid} is loaded!");
+
+        Log.LogInfo($"Plugin {Guid} is loaded!");
     }
-    
-    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path/*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
+
+    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
     {
         try
         {
