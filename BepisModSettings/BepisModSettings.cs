@@ -17,7 +17,7 @@ namespace BepisModSettings;
 public class BepisModSettings : BaseResonitePlugin
 {
     public const string Name = "Bepis Mod Settings";
-    public const string Guid = "com.NepuShiro.BepisModSettings";
+    public const string Guid = "com.ResoniteModding.BepisModSettings";
     public const string Version = "1.0.0";
     public override string Author => "NepuShiro, Art0007i";
     public override string Link => "https://github.com/ResoniteModding/BepisModSettings";
