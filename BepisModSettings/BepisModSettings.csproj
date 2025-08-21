@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
-        <AssemblyName>ResoniteIntegratedModSettings</AssemblyName>
+        <AssemblyName>BepisModSettings</AssemblyName>
         <Product>My first plugin</Product>
         <Version>1.0.0</Version>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -12,7 +12,7 @@
             https://nuget.bepinex.dev/v3/index.json;
             https://nuget.samboy.dev/v3/index.json
         </RestoreAdditionalProjectSources>
-        <RootNamespace>ResoniteIntegratedModSettings</RootNamespace>
+        <RootNamespace>BepisModSettings</RootNamespace>
     </PropertyGroup>
 
   <PropertyGroup>
@@ -37,6 +37,10 @@
 		</Reference>
 		<Reference Include="Elements.Data">
 			<HintPath>$(GamePath)Elements.Data.dll</HintPath>
+            <Private>False</Private>
+		</Reference>
+		<Reference Include="Renderite.Shared">
+			<HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
             <Private>False</Private>
 		</Reference>
 		<Reference Include="BepInEx.NET.Common">

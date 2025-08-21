@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ResoniteIntegratedModSettings", "ResoniteIntegratedModSettings\ResoniteIntegratedModSettings.csproj", "{5C8E6A56-3C13-4C41-A236-89A517BE8EF5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BepisModSettings", "BepisModSettings\BepisModSettings.csproj", "{5C8E6A56-3C13-4C41-A236-89A517BE8EF5}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

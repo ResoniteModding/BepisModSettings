@@ -1,6 +1,5 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
-using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using Elements.Core;
 using FrooxEngine;
@@ -9,38 +8,51 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using BepInEx.Configuration;
 
-namespace ResoniteIntegratedModSettings;
+namespace BepisModSettings;
 
 [BepInPlugin(Guid, Name, Version)]
 [BepInDependency(BepInExResoniteShim.BepInExResoniteShim.GUID, BepInDependency.DependencyFlags.HardDependency)]
-public class ResoniteIntegratedModSettings : BaseResonitePlugin
+public class BepisModSettings : BaseResonitePlugin
 {
-    public const string Name = "Resonite Integrated Mod Settings";
-    public const string Guid = "com.NepuShiro.ResoniteIntegratedModSettings";
+    public const string Name = "Bepis Mod Settings";
+    public const string Guid = "com.NepuShiro.BepisModSettings";
     public const string Version = "1.0.0";
-    public override string Author => "NepuShiro";
-    public override string Link => "https://github.com/NepuShiro/ResoniteIntegratedModSettings";
+    public override string Author => "NepuShiro, Art0007i";
+    public override string Link => "https://github.com/ResoniteModding/BepisModSettings";
 
     internal new static ManualLogSource Log;
-
+    
+    // TODO: Add configs for specific things, like internal only etc
+    // basically try to get feature parity with ResoniteModSettings
+    
     public override void Load()
     {
         // Plugin startup logic
         Log = base.Log;
-
+        
         MethodInfo targetMethod = AccessTools.Method(typeof(SettingsDataFeed), nameof(SettingsDataFeed.Enumerate), new Type[] { typeof(IReadOnlyList<string>), typeof(IReadOnlyList<string>), typeof(string), typeof(object) });
-        MethodInfo postfixMethod = AccessTools.Method(typeof(ResoniteIntegratedModSettings), nameof(EnumeratePostfix));
-        HarmonyInstance.Patch(targetMethod, postfix: new HarmonyMethod(postfixMethod));
+        if (targetMethod == null)
+        {
+            Log.LogError("Failed to find Enumerate method in SettingsDataFeed.");
+            return;
+        }
+        HarmonyInstance.Patch(targetMethod, postfix: new HarmonyMethod(AccessTools.Method(typeof(BepisModSettings), nameof(EnumeratePostfix))));
+        
         HarmonyInstance.PatchAll();
 
         Log.LogInfo($"Plugin {Guid} is loaded!");
     }
 
-    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
+    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(SettingsDataFeed __instance, IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
     {
         try
         {
+            if (!__instance.World.IsUserspace()) return __result;
+            
+            DataFeedHelpers.preset ??= Userspace.UserspaceWorld.RootSlot.GetComponentInChildren<SettingsFacetPreset>();
+            
             return path.Contains("BepInEx")
                     ? DataFeedInjector.ReplaceEnumerable(path)
                     : __result;

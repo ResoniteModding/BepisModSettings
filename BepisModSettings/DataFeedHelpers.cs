@@ -6,11 +6,17 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Elements.Assets;
+using Elements.Core;
+using FrooxEngine.UIX;
 
-namespace ResoniteIntegratedModSettings;
+namespace BepisModSettings;
 
+// Edited Helper code is from - https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
 public static class DataFeedHelpers
 {
+    public static SettingsFacetPreset preset;
+
     public static readonly MethodInfo GenerateEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateEnumItemsAsyncMethod));
     public static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
     public static readonly MethodInfo GenerateValueField = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateValueFieldMethod));
@@ -30,6 +36,12 @@ public static class DataFeedHelpers
         DataFeedValueField<T> valueField = new DataFeedValueField<T>();
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
         valueField.InitSetupValue(field => field.SyncWithConfigKey(configKey));
+
+        // TODO: See below
+        // if (configKey.SettingType.IsGoodInject())
+        // {
+        //     preset.Slot.RunSynchronously(() => { DoInject(configKey.SettingType); });
+        // }
 
         return valueField;
     }
@@ -232,4 +244,98 @@ public static class DataFeedHelpers
             yield return toggle;
         }
     }
+
+    // TODO: Figure out how to do this without needing a goofy component <3
+    // internal static bool IsGoodInject(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
+    //
+    // internal static void DoInject(Type theType)
+    // {
+    //     var templatesRoot = preset.Slot[0].FindChild("Templates");
+    //     if (templatesRoot != null)
+    //     {
+    //         if (templatesRoot.FindChild($"Injected DataFeedValueField<{theType.Name}>") != null)
+    //         {
+    //             BepisModSettings.Log.LogInfo($"DataFeedValueField<{theType.Name}> already injected!");
+    //             return;
+    //         }
+    //
+    //         var template = templatesRoot.AddSlot($"Injected DataFeedValueField<{theType.Name}>", false);
+    //         template.ActiveSelf = false;
+    //         template.AttachComponent<LayoutElement>();
+    //
+    //         var ui = new UIBuilder(template);
+    //         RadiantUI_Constants.SetupEditorStyle(ui);
+    //
+    //         ui.ForceNext = template.AttachComponent<RectTransform>();
+    //         ui.HorizontalLayout(11.78908f, 11.78908f).ForceExpandWidth.Value = false;
+    //
+    //         ui.PushStyle();
+    //         ui.Style.FlexibleWidth = 1f;
+    //         var text = ui.Text("Label");
+    //         ui.PopStyle();
+    //
+    //         text.Size.Value = 24f;
+    //         text.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+    //
+    //         Component component;
+    //         ISyncMember member;
+    //         FieldInfo fieldInfo;
+    //
+    //         if (theType == typeof(Type))
+    //         {
+    //             component = template.AttachComponent<TypeField>();
+    //             member = ((TypeField)component).Type;
+    //             fieldInfo = component.GetSyncMemberFieldInfo("Type");
+    //         }
+    //         else
+    //         {
+    //             component = template.AttachComponent(typeof(ValueField<>).MakeGenericType(theType));
+    //             member = component.GetSyncMember("Value");
+    //
+    //             if (member == null)
+    //             {
+    //                 BepisModSettings.Log.LogError($"Could not get Value sync member from attached ValueField<{theType.Name}> component!");
+    //                 return;
+    //             }
+    //
+    //             fieldInfo = component.GetSyncMemberFieldInfo("Value");
+    //         }
+    //
+    //         ui.PushStyle();
+    //         ui.Style.MinWidth = 521.36f;
+    //         SyncMemberEditorBuilder.Build(member, null!, fieldInfo, ui, 0f);
+    //         ui.PopStyle();
+    //
+    //         var memberActions = ui.Root?.GetComponentInChildren<InspectorMemberActions>()?.Slot;
+    //         if (memberActions != null)
+    //             memberActions.ActiveSelf = false;
+    //
+    //         var feedValueFieldInterface = template.AttachComponent(typeof(FeedValueFieldInterface<>).MakeGenericType(theType));
+    //
+    //         ((FeedItemInterface)feedValueFieldInterface).ItemName.Target = text.Content;
+    //
+    //         if (feedValueFieldInterface.GetSyncMember("Value") is not ISyncRef valueField)
+    //             BepisModSettings.Log.LogError("Could not get Value sync member from attached FeedValueFieldInterface component!");
+    //         else
+    //             valueField.Target = member;
+    //
+    //         var innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
+    //         if (innerInterfaceSlot != null)
+    //         {
+    //             var innerInterface = innerInterfaceSlot.GetComponent<FeedItemInterface>();
+    //
+    //             ((FeedItemInterface)feedValueFieldInterface).ParentContainer.Target = innerInterface;
+    //         }
+    //         else
+    //         {
+    //             BepisModSettings.Log.LogError("InnerContainerItem slot is null in EnsureDataFeedValueFieldTemplate!");
+    //         }
+    //
+    //         BepisModSettings.Log.LogInfo($"Injected DataFeedValueField<{theType.Name}> template");
+    //     }
+    //     else
+    //     {
+    //         BepisModSettings.Log.LogError("Could not find Templates slot in EnsureDataFeedValueFieldTemplate!");
+    //     }
+    // }
 }

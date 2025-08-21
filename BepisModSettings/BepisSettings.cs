@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Elements.Assets;
 using FrooxEngine;
 
-namespace ResoniteIntegratedModSettings;
+namespace BepisModSettings;
 
 [AutoRegisterSetting]
 [SettingCategory("BepInEx")]
@@ -13,8 +13,18 @@ public class BepisSettings : SettingComponent<BepisSettings>
 
     protected override void OnStart()
     {
-        SettingsLocaleHelper.AddLocaleString("Settings.Category.BepInEx", "BepInEx");
-        SettingsLocaleHelper.AddLocaleString("Settings.BepInEx", "BepInEx");
+        AddLocale();
+    }
+    
+    protected override void OnAwake()
+    {
+        AddLocale();
+    }
+
+    private static void AddLocale()
+    {
+        SettingsLocaleHelper.AddLocaleString("Settings.Category.BepInEx", "BepInEx", true);
+        SettingsLocaleHelper.AddLocaleString("Settings.BepInEx", "BepInEx", true);
     }
 
     protected override void InitializeSyncMembers()

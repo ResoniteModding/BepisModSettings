@@ -11,7 +11,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace ResoniteIntegratedModSettings;
+namespace BepisModSettings;
 
 public class DataFeedInjector
 {
@@ -21,7 +21,7 @@ public class DataFeedInjector
 
     internal static async IAsyncEnumerable<DataFeedItem> ReplaceEnumerable(IReadOnlyList<string> path)
     {
-        ResoniteIntegratedModSettings.Log.LogDebug($"Current Path: {string.Join(" -> ", path)}");
+        BepisModSettings.Log.LogDebug($"Current Path: {string.Join(" -> ", path)}");
         CurrentPath = path;
 
         // Handle root category
@@ -255,7 +255,7 @@ public class DataFeedInjector
                     }
                     catch (Exception e)
                     {
-                        ResoniteIntegratedModSettings.Log.LogError(e);
+                        BepisModSettings.Log.LogError(e);
                         enumItem = new DataFeedValueField<dummy>();
                         enumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
                     }
@@ -275,7 +275,7 @@ public class DataFeedInjector
                         }
                         catch (Exception e)
                         {
-                            ResoniteIntegratedModSettings.Log.LogError(e);
+                            BepisModSettings.Log.LogError(e);
                             DataFeedValueField<dummy> dummyField = new DataFeedValueField<dummy>();
                             dummyField.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
 
@@ -290,6 +290,7 @@ public class DataFeedInjector
                 }
                 else
                 {
+                    // TODO: See TODO in DataFeedHelpers.cs
                     DataFeedItem valueItem;
 
                     try
@@ -298,7 +299,7 @@ public class DataFeedInjector
                     }
                     catch (Exception e)
                     {
-                        ResoniteIntegratedModSettings.Log.LogError(e);
+                        BepisModSettings.Log.LogError(e);
                         valueItem = new DataFeedValueField<dummy>();
                         valueItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
                     }
@@ -335,7 +336,7 @@ public class DataFeedInjector
     [SyncMethod(typeof(Delegate), null)]
     private static void SaveConfigs(string pluginId)
     {
-        ResoniteIntegratedModSettings.Log.LogDebug($"Saving Configs for {pluginId}");
+        BepisModSettings.Log.LogDebug($"Saving Configs for {pluginId}");
         if (pluginId == "BepInEx.Core")
         {
             ConfigFile.CoreConfig.Save();
@@ -356,7 +357,7 @@ public class DataFeedInjector
         {
             if (CurrentPath == null || CurrentPath.Count < 2)
             {
-                ResoniteIntegratedModSettings.Log.LogWarning("ResetConfigs called with invalid path.");
+                BepisModSettings.Log.LogWarning("ResetConfigs called with invalid path.");
                 return;
             }
 
@@ -382,11 +383,11 @@ public class DataFeedInjector
                 entry.BoxedValue = entry.DefaultValue;
             }
 
-            ResoniteIntegratedModSettings.Log.LogInfo($"Configs for {pluginId} have been reset.");
+            BepisModSettings.Log.LogInfo($"Configs for {pluginId} have been reset.");
         }
         catch (Exception e)
         {
-            ResoniteIntegratedModSettings.Log.LogError(e);
+            BepisModSettings.Log.LogError(e);
         }
     }
 
@@ -397,7 +398,7 @@ public class DataFeedInjector
         {
             if (CurrentPath == null || CurrentPath.Count < 2)
             {
-                ResoniteIntegratedModSettings.Log.LogWarning("ResetConfigSection called with invalid path.");
+                BepisModSettings.Log.LogWarning("ResetConfigSection called with invalid path.");
                 return;
             }
 
@@ -431,11 +432,11 @@ public class DataFeedInjector
                 entry.BoxedValue = entry.DefaultValue;
             }
 
-            ResoniteIntegratedModSettings.Log.LogInfo($"Configs for {pluginId}-{section} have been reset.");
+            BepisModSettings.Log.LogInfo($"Configs for {pluginId}-{section} have been reset.");
         }
         catch (Exception e)
         {
-            ResoniteIntegratedModSettings.Log.LogError(e);
+            BepisModSettings.Log.LogError(e);
         }
     }
 }
