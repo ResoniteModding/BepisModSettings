@@ -1,27 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-<!--    <PropertyGroup>-->
-<!--        <TargetFramework>net9.0</TargetFramework>-->
-<!--        <AssemblyName>BepisModSettings</AssemblyName>-->
-<!--        <Product>BepisModSettings ingame config editing</Product>-->
-<!--        <Version>0.0.1</Version>-->
-<!--        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>-->
-<!--        <LangVersion>latest</LangVersion>-->
-<!--        <RestoreAdditionalProjectSources>-->
-<!--            https://nuget-modding.resonite.net/v3/index.json;-->
-<!--        </RestoreAdditionalProjectSources>-->
-<!--        <RootNamespace>BepisModSettings</RootNamespace>-->
-<!--    </PropertyGroup>-->
-
     <PropertyGroup>
         <Version>0.0.2</Version>
         <Authors>NepuShiro, Art0007i</Authors>
         <TargetFramework>net9.0</TargetFramework>
-        <Product>$(AssemblyName)</Product>
+        <Product>Bepis Mod Settings</Product>
         <RepositoryUrl>https://github.com/ResoniteModding/$(AssemblyName)</RepositoryUrl>
-        <PackageId>net.ResoniteModding.$(Product)</PackageId>
+        <PackageId>ResoniteModding.$(Product)</PackageId>
         
-        <GamePath>$(MSBuildThisFileDirectory)Resonite</GamePath>
+        <GamePath>$(ResonitePath)/</GamePath>
         <GamePath Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\Resonite\')">C:\Program Files (x86)\Steam\steamapps\common\Resonite\</GamePath>
         <GamePath Condition="Exists('$(HOME)\.steam\steam\steamapps\common\Resonite\')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
         
@@ -31,22 +18,10 @@
         </RestoreAdditionalProjectSources>
     </PropertyGroup>
 
-
-    <PropertyGroup>
-        <GamePath>$(MSBuildThisFileDirectory)Resonite</GamePath>
-        <GamePath Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\Resonite\')">C:\Program Files (x86)\Steam\steamapps\common\Resonite\</GamePath>
-        <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
-        <GamePath Condition="Exists('E:\Programs\Steam\steamapps\common\Resonite')">E:\Programs\Steam\steamapps\common\Resonite\</GamePath>
-    </PropertyGroup>
-
     <ItemGroup>
-        <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*-be.*"/>
-        <PackageReference Include="HarmonyX" Version="2.14.0"/>
-        <PackageReference Include="BepInEx.Core" Version="6.0.0-be.*"/>
-        <PackageReference Include="BepInEx.NET.Common" Version="6.0.0-be.*"/>
-        <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile"/>
-        <PackageReference Include="BepInEx.Preloader.Core" Version="6.0.0-be.*"/>
-        <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.6.*"/>
+        <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile" />
+        <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*" />
+        <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*" />
         <Reference Include="FrooxEngine">
             <HintPath>$(GamePath)FrooxEngine.dll</HintPath>
         </Reference>

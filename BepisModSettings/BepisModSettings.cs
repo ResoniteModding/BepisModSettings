@@ -13,19 +13,10 @@ using BepInEx.NET.Common;
 
 namespace BepisModSettings;
 
-// TODO: Fix the GUID in the Shim Pls thx <3
-// I'm not hardcoding it.
-
-[ResonitePlugin(Guid, Name, Version, Author, Link)]
-[BepInDependency(BepInExResoniteShim.BepInExResoniteShim.GUID, BepInDependency.DependencyFlags.HardDependency)]
+[ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
+[BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
 public class BepisModSettings : BasePlugin
 {
-    public const string Name = MyPluginInfo.PLUGIN_NAME;
-    public const string Guid = MyPluginInfo.PLUGIN_GUID;
-    public const string Version = MyPluginInfo.PLUGIN_VERSION;
-    public const string Author = MyPluginInfo.PLUGIN_AUTHORS;
-    public const string Link = MyPluginInfo.PLUGIN_REPOSITORY_URL;
-
     internal new static ManualLogSource Log;
     
     // TODO: Add configs for specific things, like internal only etc
@@ -46,7 +37,7 @@ public class BepisModSettings : BasePlugin
         
         HarmonyInstance.PatchAll();
 
-        Log.LogInfo($"Plugin {Guid} is loaded!");
+        Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
     }
 
     private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(SettingsDataFeed __instance, IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
