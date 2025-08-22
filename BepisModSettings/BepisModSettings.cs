@@ -20,11 +20,11 @@ namespace BepisModSettings;
 [BepInDependency(BepInExResoniteShim.BepInExResoniteShim.GUID, BepInDependency.DependencyFlags.HardDependency)]
 public class BepisModSettings : BasePlugin
 {
-    public const string Name = "Bepis Mod Settings";
-    public const string Guid = "com.ResoniteModding.BepisModSettings";
-    public const string Version = "0.0.1";
-    public const string Author = "NepuShiro, Art0007i";
-    public const string Link = "https://github.com/ResoniteModding/BepisModSettings";
+    public const string Name = MyPluginInfo.PLUGIN_NAME;
+    public const string Guid = MyPluginInfo.PLUGIN_GUID;
+    public const string Version = MyPluginInfo.PLUGIN_VERSION;
+    public const string Author = MyPluginInfo.PLUGIN_AUTHORS;
+    public const string Link = MyPluginInfo.PLUGIN_REPOSITORY_URL;
 
     internal new static ManualLogSource Log;
     

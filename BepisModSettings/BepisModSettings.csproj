@@ -17,8 +17,8 @@
         <Version>0.0.2</Version>
         <Authors>NepuShiro, Art0007i</Authors>
         <TargetFramework>net9.0</TargetFramework>
-        <RepositoryUrl>https://github.com/ResoniteModding/BepisModSettings</RepositoryUrl>
         <Product>$(AssemblyName)</Product>
+        <RepositoryUrl>https://github.com/ResoniteModding/$(AssemblyName)</RepositoryUrl>
         <PackageId>net.ResoniteModding.$(Product)</PackageId>
         
         <GamePath>$(MSBuildThisFileDirectory)Resonite</GamePath>
@@ -40,7 +40,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*"/>
+        <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*-be.*"/>
         <PackageReference Include="HarmonyX" Version="2.14.0"/>
         <PackageReference Include="BepInEx.Core" Version="6.0.0-be.*"/>
         <PackageReference Include="BepInEx.NET.Common" Version="6.0.0-be.*"/>
