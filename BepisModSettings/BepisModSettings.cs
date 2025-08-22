@@ -27,7 +27,8 @@ public class BepisModSettings : BasePlugin
         // Plugin startup logic
         Log = base.Log;
         
-        MethodInfo targetMethod = AccessTools.Method(typeof(SettingsDataFeed), nameof(SettingsDataFeed.Enumerate), new Type[] { typeof(IReadOnlyList<string>), typeof(IReadOnlyList<string>), typeof(string), typeof(object) });
+        MethodInfo targetMethod = AccessTools.Method(typeof(SettingsDataFeed), nameof(SettingsDataFeed.Enumerate),
+            [typeof(IReadOnlyList<string>), typeof(IReadOnlyList<string>), typeof(string), typeof(object)]);
         if (targetMethod == null)
         {
             Log.LogError("Failed to find Enumerate method in SettingsDataFeed.");
@@ -40,12 +41,10 @@ public class BepisModSettings : BasePlugin
         Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
     }
 
-    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(SettingsDataFeed __instance, IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
+    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
     {
         try
         {
-            if (!__instance.World.IsUserspace()) return __result;
-            
             DataFeedHelpers.preset ??= Userspace.UserspaceWorld.RootSlot.GetComponentInChildren<SettingsFacetPreset>();
             
             return path.Contains("BepInEx")

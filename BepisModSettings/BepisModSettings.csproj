@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>0.0.2</Version>
+        <Version>0.0.3</Version>
         <Authors>NepuShiro, Art0007i</Authors>
         <TargetFramework>net9.0</TargetFramework>
         <Product>Bepis Mod Settings</Product>
         <RepositoryUrl>https://github.com/ResoniteModding/$(AssemblyName)</RepositoryUrl>
-        <PackageId>ResoniteModding.$(Product)</PackageId>
+        <PackageId>ResoniteModding.$(AssemblyName)</PackageId>
         
         <GamePath>$(ResonitePath)/</GamePath>
         <GamePath Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\Resonite\')">C:\Program Files (x86)\Steam\steamapps\common\Resonite\</GamePath>
