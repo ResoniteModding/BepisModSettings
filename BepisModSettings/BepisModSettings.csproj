@@ -1,76 +1,71 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+<!--    <PropertyGroup>-->
+<!--        <TargetFramework>net9.0</TargetFramework>-->
+<!--        <AssemblyName>BepisModSettings</AssemblyName>-->
+<!--        <Product>BepisModSettings ingame config editing</Product>-->
+<!--        <Version>0.0.1</Version>-->
+<!--        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>-->
+<!--        <LangVersion>latest</LangVersion>-->
+<!--        <RestoreAdditionalProjectSources>-->
+<!--            https://nuget-modding.resonite.net/v3/index.json;-->
+<!--        </RestoreAdditionalProjectSources>-->
+<!--        <RootNamespace>BepisModSettings</RootNamespace>-->
+<!--    </PropertyGroup>-->
+
     <PropertyGroup>
+        <Version>0.0.2</Version>
+        <Authors>NepuShiro, Art0007i</Authors>
         <TargetFramework>net9.0</TargetFramework>
-        <AssemblyName>BepisModSettings</AssemblyName>
-        <Product>BepisModSettings ingame config editing</Product>
-        <Version>0.0.1</Version>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <LangVersion>latest</LangVersion>
+        <RepositoryUrl>https://github.com/ResoniteModding/BepisModSettings</RepositoryUrl>
+        <Product>$(AssemblyName)</Product>
+        <PackageId>net.ResoniteModding.$(Product)</PackageId>
+        
+        <GamePath>$(MSBuildThisFileDirectory)Resonite</GamePath>
+        <GamePath Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\Resonite\')">C:\Program Files (x86)\Steam\steamapps\common\Resonite\</GamePath>
+        <GamePath Condition="Exists('$(HOME)\.steam\steam\steamapps\common\Resonite\')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
+        
+        <RootNamespace>$(AssemblyName)</RootNamespace>
         <RestoreAdditionalProjectSources>
-            https://api.nuget.org/v3/index.json;
-            https://nuget.bepinex.dev/v3/index.json;
-            https://nuget.samboy.dev/v3/index.json
+            https://nuget-modding.resonite.net/v3/index.json;
         </RestoreAdditionalProjectSources>
-        <RootNamespace>BepisModSettings</RootNamespace>
     </PropertyGroup>
 
-  <PropertyGroup>
-    <GamePath>$(MSBuildThisFileDirectory)Resonite</GamePath>
-    <GamePath Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\Resonite\')">C:\Program Files (x86)\Steam\steamapps\common\Resonite\</GamePath>
-    <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
-    <GamePath Condition="Exists('E:\Programs\Steam\steamapps\common\Resonite')">E:\Programs\Steam\steamapps\common\Resonite\</GamePath>
-  </PropertyGroup>
-	
-  <ItemGroup>
-		<Reference Include="FrooxEngine">
-			<HintPath>$(GamePath)FrooxEngine.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="Elements.Core">
-			<HintPath>$(GamePath)Elements.Core.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="Elements.Assets">
-			<HintPath>$(GamePath)Elements.Assets.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="Elements.Data">
-			<HintPath>$(GamePath)Elements.Data.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="Renderite.Shared">
-			<HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="BepInEx.NET.Common">
-			<HintPath>$(GamePath)BepInEx/core/BepInEx.NET.Common.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="BepInEx.NET.CoreCLR">
-			<HintPath>$(GamePath)BepInEx/core/BepInEx.NET.CoreCLR.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="BepInEx.Core">
-			<HintPath>$(GamePath)BepInEx/core/BepInEx.Core.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="SemanticVersioning">
-			<HintPath>$(GamePath)BepInEx/core/SemanticVersioning.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="0Harmony">
-			<HintPath>$(GamePath)BepInEx/core/0Harmony.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-		<Reference Include="BepInExResoniteShim">
-			<HintPath>$(GamePath)BepInEx/plugins/BepInExResoniteShim.dll</HintPath>
-            <Private>False</Private>
-		</Reference>
-  </ItemGroup>
 
-	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
-		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GamePath)BepInEx\plugins" />
-		<Message Text="Copied $(TargetFileName) to $(GamePath)BepInEx\plugins" Importance="high" />
-	</Target>
+    <PropertyGroup>
+        <GamePath>$(MSBuildThisFileDirectory)Resonite</GamePath>
+        <GamePath Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\Resonite\')">C:\Program Files (x86)\Steam\steamapps\common\Resonite\</GamePath>
+        <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
+        <GamePath Condition="Exists('E:\Programs\Steam\steamapps\common\Resonite')">E:\Programs\Steam\steamapps\common\Resonite\</GamePath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*"/>
+        <PackageReference Include="HarmonyX" Version="2.14.0"/>
+        <PackageReference Include="BepInEx.Core" Version="6.0.0-be.*"/>
+        <PackageReference Include="BepInEx.NET.Common" Version="6.0.0-be.*"/>
+        <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile"/>
+        <PackageReference Include="BepInEx.Preloader.Core" Version="6.0.0-be.*"/>
+        <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.6.*"/>
+        <Reference Include="FrooxEngine">
+            <HintPath>$(GamePath)FrooxEngine.dll</HintPath>
+        </Reference>
+        <Reference Include="Elements.Core">
+            <HintPath>$(GamePath)Elements.Core.dll</HintPath>
+        </Reference>
+        <Reference Include="Elements.Data">
+            <HintPath>$(GamePath)Elements.Data.dll</HintPath>
+        </Reference>
+        <Reference Include="Elements.Assets">
+            <HintPath>$(GamePath)Elements.Assets.dll</HintPath>
+        </Reference>
+        <Reference Include="Renderite.Shared">
+            <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+
+    <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+        <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GamePath)BepInEx\plugins"/>
+        <Message Text="Copied $(TargetFileName) to $(GamePath)BepInEx\plugins" Importance="high"/>
+    </Target>
 </Project>

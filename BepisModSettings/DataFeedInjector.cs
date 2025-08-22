@@ -79,14 +79,10 @@ public class DataFeedInjector
                 if (pluginInfo?.Instance is not BasePlugin plugin) yield break;
 
                 BepInPlugin metaData = MetadataHelper.GetMetadata(plugin);
+                ResonitePlugin resonitePlugin = metaData as ResonitePlugin;
 
                 file = plugin.Config;
-                meta = new ModMeta(metaData.Name, metaData.Version.ToString(), pluginId, null, null);
-                if (plugin is BaseResonitePlugin resonitePlugin)
-                {
-                    meta.Author = resonitePlugin.Author;
-                    meta.Link = resonitePlugin.Link;
-                }
+                meta = new ModMeta(metaData.Name, metaData.Version.ToString(), pluginId, resonitePlugin?.Author, resonitePlugin?.Link);
             }
             
             if (string.IsNullOrWhiteSpace(meta.Name))

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Elements.Assets;
 using FrooxEngine;
 
 namespace BepisModSettings;

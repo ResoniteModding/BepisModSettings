@@ -9,18 +9,22 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using BepInEx.Configuration;
+using BepInEx.NET.Common;
 
 namespace BepisModSettings;
 
-[BepInPlugin(Guid, Name, Version)]
+// TODO: Fix the GUID in the Shim Pls thx <3
+// I'm not hardcoding it.
+
+[ResonitePlugin(Guid, Name, Version, Author, Link)]
 [BepInDependency(BepInExResoniteShim.BepInExResoniteShim.GUID, BepInDependency.DependencyFlags.HardDependency)]
-public class BepisModSettings : BaseResonitePlugin
+public class BepisModSettings : BasePlugin
 {
     public const string Name = "Bepis Mod Settings";
     public const string Guid = "com.ResoniteModding.BepisModSettings";
     public const string Version = "0.0.1";
-    public override string Author => "NepuShiro, Art0007i";
-    public override string Link => "https://github.com/ResoniteModding/BepisModSettings";
+    public const string Author = "NepuShiro, Art0007i";
+    public const string Link = "https://github.com/ResoniteModding/BepisModSettings";
 
     internal new static ManualLogSource Log;
     
