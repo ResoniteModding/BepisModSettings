@@ -25,8 +25,7 @@ public static class SettingsLocaleHelper
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true
     };
-
-    // TODO: Figure out how to load locale strings from a file - maybe put into BepInExResoniteShim?
+    
     public static void AddLocaleString(string rawString, string localeString, bool force = false)
     {
         LocaleData localeData = new LocaleData
