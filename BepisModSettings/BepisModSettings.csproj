@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>0.0.3</Version>
+        <Version>0.1.0</Version>
         <Authors>NepuShiro, Art0007i</Authors>
         <TargetFramework>net9.0</TargetFramework>
         <Product>Bepis Mod Settings</Product>

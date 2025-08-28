@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Elements.Assets;
 using Elements.Core;
 using FrooxEngine.UIX;
 
@@ -14,7 +15,29 @@ namespace BepisModSettings;
 // Edited Helper code is from - https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
 public static class DataFeedHelpers
 {
-    public static SettingsFacetPreset preset;
+    private static SettingsFacetPreset _preset;
+
+    private static SettingsFacetPreset Preset
+    {
+        get
+        {
+            _preset = _preset?.FilterWorldElement() ?? Userspace.UserspaceWorld.RootSlot.GetComponentInChildren<SettingsFacetPreset>();
+            return _preset;
+        }
+    }
+
+    private static RootCategoryView _rootCategoryView;
+
+    private static RootCategoryView RootCategoryView
+    {
+        get
+        {
+            _rootCategoryView = _rootCategoryView?.FilterWorldElement() ?? Preset.Slot.GetComponentInChildren<RootCategoryView>();
+            return _rootCategoryView;
+        }
+    }
+
+    private static DataFeedItemMapper Mapper => RootCategoryView?.ItemsManager.TemplateMapper.Target.FilterWorldElement();
 
     public static readonly MethodInfo GenerateEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateEnumItemsAsyncMethod));
     public static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
@@ -36,11 +59,10 @@ public static class DataFeedHelpers
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
         valueField.InitSetupValue(field => field.SyncWithConfigKey(configKey));
 
-        // TODO: See below
-        // if (configKey.SettingType.IsGoodInject())
-        // {
-        //     preset.Slot.RunSynchronously(() => { DoInject(configKey.SettingType); });
-        // }
+        if (configKey.SettingType.IsGoodInject())
+        {
+            Preset.Slot.RunSynchronously(() => DoInject(configKey.SettingType));
+        }
 
         return valueField;
     }
@@ -187,7 +209,7 @@ public static class DataFeedHelpers
         yield return group;
         string[] groupKeys = [groupId];
 
-        var enumType = typeof(T);
+        Type enumType = typeof(T);
         foreach (object val in Enum.GetValues(enumType))
         {
             if (val is not Enum e) continue;
@@ -244,97 +266,122 @@ public static class DataFeedHelpers
         }
     }
 
-    // TODO: Figure out how to do this without needing a goofy component <3
-    // internal static bool IsGoodInject(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
-    //
-    // internal static void DoInject(Type theType)
-    // {
-    //     var templatesRoot = preset.Slot[0].FindChild("Templates");
-    //     if (templatesRoot != null)
-    //     {
-    //         if (templatesRoot.FindChild($"Injected DataFeedValueField<{theType.Name}>") != null)
-    //         {
-    //             BepisModSettings.Log.LogInfo($"DataFeedValueField<{theType.Name}> already injected!");
-    //             return;
-    //         }
-    //
-    //         var template = templatesRoot.AddSlot($"Injected DataFeedValueField<{theType.Name}>", false);
-    //         template.ActiveSelf = false;
-    //         template.AttachComponent<LayoutElement>();
-    //
-    //         var ui = new UIBuilder(template);
-    //         RadiantUI_Constants.SetupEditorStyle(ui);
-    //
-    //         ui.ForceNext = template.AttachComponent<RectTransform>();
-    //         ui.HorizontalLayout(11.78908f, 11.78908f).ForceExpandWidth.Value = false;
-    //
-    //         ui.PushStyle();
-    //         ui.Style.FlexibleWidth = 1f;
-    //         var text = ui.Text("Label");
-    //         ui.PopStyle();
-    //
-    //         text.Size.Value = 24f;
-    //         text.HorizontalAlign.Value = TextHorizontalAlignment.Left;
-    //
-    //         Component component;
-    //         ISyncMember member;
-    //         FieldInfo fieldInfo;
-    //
-    //         if (theType == typeof(Type))
-    //         {
-    //             component = template.AttachComponent<TypeField>();
-    //             member = ((TypeField)component).Type;
-    //             fieldInfo = component.GetSyncMemberFieldInfo("Type");
-    //         }
-    //         else
-    //         {
-    //             component = template.AttachComponent(typeof(ValueField<>).MakeGenericType(theType));
-    //             member = component.GetSyncMember("Value");
-    //
-    //             if (member == null)
-    //             {
-    //                 BepisModSettings.Log.LogError($"Could not get Value sync member from attached ValueField<{theType.Name}> component!");
-    //                 return;
-    //             }
-    //
-    //             fieldInfo = component.GetSyncMemberFieldInfo("Value");
-    //         }
-    //
-    //         ui.PushStyle();
-    //         ui.Style.MinWidth = 521.36f;
-    //         SyncMemberEditorBuilder.Build(member, null!, fieldInfo, ui, 0f);
-    //         ui.PopStyle();
-    //
-    //         var memberActions = ui.Root?.GetComponentInChildren<InspectorMemberActions>()?.Slot;
-    //         if (memberActions != null)
-    //             memberActions.ActiveSelf = false;
-    //
-    //         var feedValueFieldInterface = template.AttachComponent(typeof(FeedValueFieldInterface<>).MakeGenericType(theType));
-    //
-    //         ((FeedItemInterface)feedValueFieldInterface).ItemName.Target = text.Content;
-    //
-    //         if (feedValueFieldInterface.GetSyncMember("Value") is not ISyncRef valueField)
-    //             BepisModSettings.Log.LogError("Could not get Value sync member from attached FeedValueFieldInterface component!");
-    //         else
-    //             valueField.Target = member;
-    //
-    //         var innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
-    //         if (innerInterfaceSlot != null)
-    //         {
-    //             var innerInterface = innerInterfaceSlot.GetComponent<FeedItemInterface>();
-    //
-    //             ((FeedItemInterface)feedValueFieldInterface).ParentContainer.Target = innerInterface;
-    //         }
-    //         else
-    //         {
-    //             BepisModSettings.Log.LogError("InnerContainerItem slot is null in EnsureDataFeedValueFieldTemplate!");
-    //         }
-    //
-    //         BepisModSettings.Log.LogInfo($"Injected DataFeedValueField<{theType.Name}> template");
-    //     }
-    //     else
-    //     {
-    //         BepisModSettings.Log.LogError("Could not find Templates slot in EnsureDataFeedValueFieldTemplate!");
-    //     }
-    // }
+    private static bool IsGoodInject(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
+
+    private static void DoInject(Type typeToInject)
+    {
+        if (Mapper == null) return;
+
+        if (!typeToInject.IsGoodInject())
+        {
+            Plugin.Log.LogError($"Attempted to inject unsupported editor type {typeToInject.GetNiceName()} in DoInject!");
+            return;
+        }
+
+        Type dataFeedValueFieldType = typeof(DataFeedValueField<>).MakeGenericType(typeToInject);
+        if (Mapper.Mappings.Any(mapping => mapping.MatchingType == dataFeedValueFieldType && mapping.Template.Target != null)) return;
+
+        Slot templatesRoot = Mapper.Slot.Parent?.FindChild("Templates");
+        if (templatesRoot != null)
+        {
+            bool changeIndex = false;
+            DataFeedItemMapper.ItemMapping mapping = Mapper.Mappings.FirstOrDefault(mapping => mapping.MatchingType == dataFeedValueFieldType && mapping.Template.Target == null);
+
+            if (mapping == null)
+            {
+                mapping = Mapper.Mappings.Add();
+                mapping.MatchingType.Value = dataFeedValueFieldType;
+                changeIndex = true;
+            }
+
+            Slot template = templatesRoot.AddSlot($"Injected DataFeedValueField<{typeToInject.GetNiceName()}>", false);
+            template.ActiveSelf = false;
+            template.AttachComponent<LayoutElement>();
+
+            UIBuilder ui = new UIBuilder(template);
+            RadiantUI_Constants.SetupEditorStyle(ui);
+
+            ui.ForceNext = template.AttachComponent<RectTransform>();
+            HorizontalLayout hori = ui.HorizontalLayout(11.78908f, 11.78908f);
+            hori.ForceExpandWidth.Value = true;
+            if (typeToInject != typeof(colorX))
+            {
+                hori.Slot.GetComponent<LayoutElement>().MinHeight.Value = 64;
+            }
+
+            ui.PushStyle();
+            ui.Style.FlexibleWidth = 1f;
+            Text text = ui.Text("Label");
+            ui.PopStyle();
+
+            text.Size.Value = 24f;
+            text.HorizontalAlign.Value = TextHorizontalAlignment.Left;
+
+            Component component;
+            ISyncMember member;
+            FieldInfo fieldInfo;
+
+            if (typeToInject == typeof(Type))
+            {
+                component = template.AttachComponent<TypeField>();
+                member = ((TypeField)component).Type;
+                fieldInfo = component.GetSyncMemberFieldInfo("Type");
+            }
+            else
+            {
+                component = template.AttachComponent(typeof(ValueField<>).MakeGenericType(typeToInject));
+                member = component.GetSyncMember("Value");
+
+                if (member == null)
+                {
+                    Plugin.Log.LogError($"Could not get Value sync member from attached ValueField<{typeToInject.Name}> component!");
+                    return;
+                }
+
+                fieldInfo = component.GetSyncMemberFieldInfo("Value");
+            }
+
+            ui.PushStyle();
+            ui.Style.MinWidth = 521.36f;
+            SyncMemberEditorBuilder.Build(member, null, fieldInfo, ui, 0f);
+            ui.PopStyle();
+
+            Slot memberActions = ui.Root?.GetComponentInChildren<InspectorMemberActions>()?.Slot;
+            if (memberActions != null)
+                memberActions.ActiveSelf = false;
+
+            Component feedValueFieldInterface = template.AttachComponent(typeof(FeedValueFieldInterface<>).MakeGenericType(typeToInject));
+
+            ((FeedItemInterface)feedValueFieldInterface).ItemName.Target = text.Content;
+
+            if (feedValueFieldInterface.GetSyncMember("Value") is not ISyncRef valueField)
+                Plugin.Log.LogError("Could not get Value sync member from attached FeedValueFieldInterface component!");
+            else
+                valueField.Target = member;
+
+            Slot innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
+            if (innerInterfaceSlot != null)
+            {
+                FeedItemInterface innerInterface = innerInterfaceSlot.GetComponent<FeedItemInterface>();
+
+                ((FeedItemInterface)feedValueFieldInterface).ParentContainer.Target = innerInterface;
+            }
+            else
+            {
+                Plugin.Log.LogError("InnerContainerItem slot is null in EnsureDataFeedValueFieldTemplate!");
+            }
+
+            mapping.Template.Target = (FeedItemInterface)feedValueFieldInterface;
+
+            if (changeIndex)
+            {
+                // Move the new mapping above the previous last element (default DataFeedItem mapping) in the list
+                Mapper.Mappings.MoveToIndex(Mapper.Mappings.Count - 1, Mapper.Mappings.Count - 2);
+            }
+        }
+        else
+        {
+            Plugin.Log.LogError("Could not find Templates slot in EnsureDataFeedValueFieldTemplate!");
+        }
+    }
 }

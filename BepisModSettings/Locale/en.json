@@ -1,0 +1,45 @@
+{
+  "localeCode": "en-US",
+  "authors": [
+    "NepuShiro"
+  ],
+  "messages": {
+    "Settings.Category.BepInEx": "BepInEx",
+	
+    "Settings.BepInEx": "BepInEx",
+	"Settings.BepInEx.Core": "BepInEx Core Config",
+	"Settings.BepInEx.Core.Breadcrumb": "BepInEx Core Config",
+	
+	"Settings.BepInEx.Plugin": "{name}",
+	"Settings.BepInEx.Plugin.Breadcrumb": "{name}",
+	"Settings.BepInEx.Plugin.Description": "{name}\n{guid}\n({version})",
+	
+	"Settings.BepInEx.Plugins.LoadedPlugins": "Loaded Plugins",
+	"Settings.BepInEx.Plugins.NoConfigs": "This Plugin has No Configs",
+	
+	"Settings.BepInEx.Plugins.Configs.Default": "{name} : {type}",
+	"Settings.BepInEx.Plugins.Configs.Value": "{name} : {value}",
+	"Settings.BepInEx.Plugins.Configs.Name": "{name}",
+	"Settings.BepInEx.Plugins.Configs.Description": "{description}",
+	
+	"Settings.BepInEx.Plugins.Error": "An Error has occurred",
+	
+	"Settings.BepInEx.Plugins.Actions": "Actions",
+	"Settings.BepInEx.Plugins.SaveConfig": "Save the currently selected Plugin's Configs",
+	"Settings.BepInEx.Plugins.ResetConfig": "Reset all categories from the currently selected Plugin's Configs",
+	
+	"Settings.BepInEx.Plugins.Metadata": "Metadata",
+	"Settings.BepInEx.Plugins.Guid": "Mod ID",
+	"Settings.BepInEx.Plugins.Author": "Author(s)",
+	"Settings.BepInEx.Plugins.Version": "Version",
+	"Settings.BepInEx.Plugins.ModPage": "Open Mod Page",
+	
+	"Settings.ResoniteModding.BepisModSettings": "Bepis Mod Settings",
+	"Settings.ResoniteModding.BepisModSettings.Breadcrumb": "Bepis Mod Settings",
+	"Settings.ResoniteModding.BepisModSettings.Description": "Lets you edit your mod settings in settings tab of the dashboard.",
+
+    // TODO: Add a way to read these
+	"Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden": "Show Hidden Configs", 
+	"Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden.Description": "Whether to show hidden Configs"
+  }
+}

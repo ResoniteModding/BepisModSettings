@@ -10,21 +10,21 @@ public class BepisSettings : SettingComponent<BepisSettings>
 {
     public override bool UserspaceOnly => true;
 
-    protected override void OnStart()
-    {
-        AddLocale();
-    }
-    
-    protected override void OnAwake()
-    {
-        AddLocale();
-    }
-
-    private static void AddLocale()
-    {
-        SettingsLocaleHelper.AddLocaleString("Settings.Category.BepInEx", "BepInEx", true);
-        SettingsLocaleHelper.AddLocaleString("Settings.BepInEx", "BepInEx", true);
-    }
+    // protected override void OnStart()
+    // {
+    //     AddLocale();
+    // }
+    // 
+    // protected override void OnAwake()
+    // {
+    //     AddLocale();
+    // }
+    // 
+    // private static void AddLocale()
+    // {
+    //     SettingsLocaleHelper.AddLocaleString("Settings.Category.BepInEx", "BepInEx", true);
+    //     SettingsLocaleHelper.AddLocaleString("Settings.BepInEx", "BepInEx", true);
+    // }
 
     protected override void InitializeSyncMembers()
     {
@@ -35,10 +35,10 @@ public class BepisSettings : SettingComponent<BepisSettings>
     {
         return index switch
         {
-            0 => persistent, 
-            1 => updateOrder, 
-            2 => EnabledField, 
-            _ => throw new ArgumentOutOfRangeException(), 
+            0 => persistent,
+            1 => updateOrder,
+            2 => EnabledField,
+            _ => throw new ArgumentOutOfRangeException(),
         };
     }
 

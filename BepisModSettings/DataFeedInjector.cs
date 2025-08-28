@@ -10,35 +10,32 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using BepInEx.Logging;
 
 namespace BepisModSettings;
 
 public class DataFeedInjector
 {
-    private static readonly Type DummyType = typeof(dummy);
-
     private static IReadOnlyList<string> CurrentPath { get; set; }
 
     internal static async IAsyncEnumerable<DataFeedItem> ReplaceEnumerable(IReadOnlyList<string> path)
     {
-        BepisModSettings.Log.LogDebug($"Current Path: {string.Join(" -> ", path)}");
+        Plugin.Log.LogDebug($"Current Path: {string.Join(" -> ", path)}");
         CurrentPath = path;
 
         // Handle root category
         if (path.Count == 1)
         {
-            SettingsLocaleHelper.AddLocaleString("Settings.BepInEx.Core.Breadcrumb", "BepInEx Core Config");
-
             DataFeedCategory bepisCategory = new DataFeedCategory();
-            bepisCategory.InitBase("BepInEx.Core", path, null, "BepInEx Core Config");
+            bepisCategory.InitBase("BepInEx.Core", path, null, "Settings.BepInEx.Core".AsLocaleKey());
             yield return bepisCategory;
 
             DataFeedGroup bepisGroup = new DataFeedGroup();
-            bepisGroup.InitBase("BepInEx", path, null, "BepInEx");
+            bepisGroup.InitBase("BepInEx", path, null, "Settings.BepInEx".AsLocaleKey());
             yield return bepisGroup;
 
             DataFeedGrid loadedPluginsGrid = new DataFeedGrid();
-            loadedPluginsGrid.InitBase("LoadedPluginsGrid", path, ["BepInEx"], "Loaded Plugins Grid");
+            loadedPluginsGrid.InitBase("LoadedPluginsGrid", path, ["BepInEx"], "Settings.BepInEx.LoadedPlugins".AsLocaleKey());
             yield return loadedPluginsGrid;
 
             string[] loadedPluginsGroup = new[] { "BepInEx", "LoadedPluginsGrid" };
@@ -50,13 +47,24 @@ public class DataFeedInjector
                     if (plugin == null) continue;
 
                     BepInPlugin metaData = plugin.Metadata;
-                    string moduleId = metaData.GUID;
+                    string pluginGuid = metaData.GUID;
 
-                    SettingsLocaleHelper.AddLocaleString($"Settings.{moduleId}.Breadcrumb", metaData.Name);
+                    LocaleString nameKey = "Settings.BepInEx.Plugin.Breadcrumb".AsLocaleKey(("name", metaData.Name));
+                    LocaleString description = "Settings.BepInEx.Plugin.Description".AsLocaleKey(("name", metaData.Name), ("guid", metaData.GUID), ("version", metaData.Version));
 
-                    DataFeedCategory loadedModule = new DataFeedCategory();
-                    loadedModule.InitBase(moduleId, path, loadedPluginsGroup, metaData.Name, $"{metaData.Name}\n{metaData.GUID}\n({metaData.Version})");
-                    yield return loadedModule;
+                    if (SettingsLocaleHelper.PluginsWithLocales.Contains(plugin))
+                    {
+                        nameKey = $"Settings.{pluginGuid}.Breadcrumb".AsLocaleKey();
+                        description = $"Settings.{pluginGuid}.Description".AsLocaleKey();
+                    }
+                    else
+                    {
+                        SettingsLocaleHelper.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", metaData.Name);
+                    }
+
+                    DataFeedCategory loadedPlugin = new DataFeedCategory();
+                    loadedPlugin.InitBase(pluginGuid, path, loadedPluginsGroup, nameKey, description);
+                    yield return loadedPlugin;
                 }
             }
         }
@@ -84,7 +92,7 @@ public class DataFeedInjector
                 file = plugin.Config;
                 meta = new ModMeta(metaData.Name, metaData.Version.ToString(), pluginId, resonitePlugin?.Author, resonitePlugin?.Link);
             }
-            
+
             if (string.IsNullOrWhiteSpace(meta.Name))
                 meta.Name = "<i>Unknown</i>";
             if (string.IsNullOrWhiteSpace(meta.Version))
@@ -108,7 +116,7 @@ public class DataFeedInjector
             if (file.Count == 0)
             {
                 DataFeedLabel noConfigs = new DataFeedLabel();
-                noConfigs.InitBase("NoConfigs", path, null, "This Plugin has No Configs");
+                noConfigs.InitBase("NoConfigs", path, null, "Settings.BepInEx.Plugins.NoConfigs".AsLocaleKey());
                 yield return noConfigs;
             }
             else
@@ -122,33 +130,33 @@ public class DataFeedInjector
 
             // Metadata
             DataFeedGroup modGroup = new DataFeedGroup();
-            modGroup.InitBase("Metadata", path, null, "Metadata");
+            modGroup.InitBase("Metadata", path, null, "Settings.BepInEx.Plugins.Metadata".AsLocaleKey());
             yield return modGroup;
 
             string[] metadataGroup = new[] { "Metadata" };
 
             DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
-            idIndicator.InitBase("Id", path, metadataGroup, "Mod ID");
+            idIndicator.InitBase("Id", path, metadataGroup, "Settings.BepInEx.Plugins.Guid".AsLocaleKey());
             idIndicator.InitSetupValue(field => field.Value = meta.ID);
             yield return idIndicator;
 
             if (!string.IsNullOrWhiteSpace(meta.Author))
             {
                 DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
-                authorsIndicator.InitBase("Author", path, metadataGroup, "Author(s)");
+                authorsIndicator.InitBase("Author", path, metadataGroup, "Settings.BepInEx.Plugins.Author".AsLocaleKey());
                 authorsIndicator.InitSetupValue(field => field.Value = meta.Author);
                 yield return authorsIndicator;
             }
 
             DataFeedIndicator<string> versionIndicator = new DataFeedIndicator<string>();
-            versionIndicator.InitBase("Version", path, metadataGroup, "Version");
+            versionIndicator.InitBase("Version", path, metadataGroup, "Settings.BepInEx.Plugins.Version".AsLocaleKey());
             versionIndicator.InitSetupValue(field => field.Value = meta.Version);
             yield return versionIndicator;
 
             if (!string.IsNullOrWhiteSpace(meta.Link) && Uri.TryCreate(meta.Link, UriKind.Absolute, out var uri))
             {
                 var modHyperlink = new DataFeedAction();
-                modHyperlink.InitBase("Link", path, metadataGroup, "Open Mod Page");
+                modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey());
                 modHyperlink.InitAction(syncDelegate =>
                 {
                     var slot = syncDelegate?.Slot;
@@ -171,7 +179,7 @@ public class DataFeedInjector
             else
             {
                 DataFeedLabel noConfigs = new DataFeedLabel();
-                noConfigs.InitBase("InvalidCategory", path, null, "An error has occurred.");
+                noConfigs.InitBase("InvalidCategory", path, null, "Settings.BepInEx.Plugins.Error".AsLocaleKey());
                 yield return noConfigs;
             }
         }
@@ -181,7 +189,7 @@ public class DataFeedInjector
 
     private record struct ModMeta(string Name, string Version, string ID, string Author, string Link);
 
-    private static async IAsyncEnumerable<DataFeedItem> EnumerateConfigs(ConfigFile configFile, ModMeta meta, IReadOnlyList<string> path)
+    private static async IAsyncEnumerable<DataFeedItem> EnumerateConfigs(ConfigFile configFile, ModMeta metaData, IReadOnlyList<string> path)
     {
         // Used for enum config keys. basically you can define a function which will display a subcategory of this category.
         CategoryHandlers.Clear();
@@ -216,14 +224,51 @@ public class DataFeedInjector
                         ? initKey + added.Count
                         : initKey;
 
+                LocaleString defaultKey = "Settings.BepInEx.Plugins.Configs.Default".AsLocaleKey(("name", config.Definition.Key), ("type", valueType));
+                LocaleString valueKey = "Settings.BepInEx.Plugins.Configs.Value".AsLocaleKey(("name", config.Definition.Key), ("value", config.BoxedValue));
+                LocaleString nameKey = "Settings.BepInEx.Plugins.Configs.Name".AsLocaleKey(("name", config.Definition.Key));
+                LocaleString descKey = "Settings.BepInEx.Plugins.Configs.Description".AsLocaleKey(("description", config.Description.Description));
+                // TODO: Add Key for SubCategories
+
+                // TODO: Figure out how to actually Localize config keys.
+                // if (SettingsLocaleHelper.PluginsWithLocales.Any(x => x.Metadata.GUID == metaData.ID))
+                // {
+                //     nameKey = config.Definition.Key.AsLocaleKey();
+                //     descKey = config.Description.Description.AsLocaleKey();
+                //     
+                //     defaultKey = $"Settings.{metaData.ID}.Configs.Default".AsLocaleKey(("name", nameKey.content), ("type", valueType));
+                //     valueKey = $"Settings.{metaData.ID}.Configs.Value".AsLocaleKey(("name", nameKey.content), ("value", config.BoxedValue));
+                // }
+
                 added.Add(key);
 
                 string[] groupingKeys = [section];
 
-                if (valueType == DummyType)
+                if (valueType == typeof(dummy))
                 {
-                    DataFeedValueField<dummy> dummyField = new DataFeedValueField<dummy>();
-                    dummyField.InitBase(key, path, groupingKeys, config.Definition.Key, config.Description.Description);
+                    DataFeedItem dummyField = null;
+
+                    if (config.Description.Tags.Contains("Action") && config.Description.Tags.FirstOrDefault(x => x is Delegate) is Delegate del)
+                    {
+                        DataFeedAction actionField = new DataFeedAction();
+                        actionField.InitBase(key, path, groupingKeys, nameKey, descKey);
+                        actionField.InitAction(syncDelegate =>
+                        {
+                            Button btn = syncDelegate.Slot.GetComponent<Button>();
+                            if (btn == null) return;
+
+                            btn.LocalPressed += (_, _) => del.DynamicInvoke();
+                        });
+
+                        dummyField = actionField;
+                    }
+
+                    if (dummyField == null)
+                    {
+                        dummyField = new DataFeedValueField<dummy>();
+                        dummyField.InitBase(key, path, groupingKeys, nameKey, descKey);
+                    }
+
                     yield return dummyField;
                 }
                 else if (valueType == typeof(bool))
@@ -233,7 +278,7 @@ public class DataFeedInjector
                 else if (valueType.IsEnum)
                 {
                     DataFeedItem enumItem;
-                    
+
                     try
                     {
                         if (valueType.GetCustomAttribute<FlagsAttribute>() != null)
@@ -242,7 +287,7 @@ public class DataFeedInjector
 
                             CategoryHandlers.Add(key, path2 => (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
                             enumItem = new DataFeedCategory();
-                            enumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {config.BoxedValue}", config.Description.Description);
+                            enumItem.InitBase(key, path, groupingKeys, valueKey, descKey);
                         }
                         else
                         {
@@ -251,11 +296,11 @@ public class DataFeedInjector
                     }
                     catch (Exception e)
                     {
-                        BepisModSettings.Log.LogError(e);
+                        Plugin.Log.LogError(e);
                         enumItem = new DataFeedValueField<dummy>();
-                        enumItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
+                        enumItem.InitBase(key, path, groupingKeys, defaultKey, descKey);
                     }
-                    
+
                     yield return enumItem;
                 }
                 else if (valueType.IsNullable())
@@ -271,9 +316,9 @@ public class DataFeedInjector
                         }
                         catch (Exception e)
                         {
-                            BepisModSettings.Log.LogError(e);
+                            Plugin.Log.LogError(e);
                             DataFeedValueField<dummy> dummyField = new DataFeedValueField<dummy>();
-                            dummyField.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
+                            dummyField.InitBase(key, path, groupingKeys, defaultKey, descKey);
 
                             nullableEnumItems = GetDummyAsync(dummyField);
                         }
@@ -295,9 +340,9 @@ public class DataFeedInjector
                     }
                     catch (Exception e)
                     {
-                        BepisModSettings.Log.LogError(e);
+                        Plugin.Log.LogError(e);
                         valueItem = new DataFeedValueField<dummy>();
-                        valueItem.InitBase(key, path, groupingKeys, $"{config.Definition.Key} : {valueType}", config.Description.Description);
+                        valueItem.InitBase(key, path, groupingKeys, defaultKey, descKey);
                     }
 
                     yield return valueItem;
@@ -307,32 +352,32 @@ public class DataFeedInjector
 
         const string groupId = "ActionsGroup";
         DataFeedGroup group = new DataFeedGroup();
-        group.InitBase(groupId, path, null, "Actions");
+        group.InitBase(groupId, path, null, "Settings.BepInEx.Plugins.Actions".AsLocaleKey());
         yield return group;
         string[] groupKeys = [groupId];
 
         DataFeedValueAction<string> saveAct = new DataFeedValueAction<string>();
-        saveAct.InitBase("SaveConfig", path, groupKeys, "Save Config File", "Save the currently selected Plugin's Configs");
-        saveAct.InitAction(syncDelegate => syncDelegate.Target = SaveConfigs, meta.ID);
+        saveAct.InitBase("SaveConfig", path, groupKeys, "Save Config File", "Settings.BepInEx.Plugins.SaveConfig".AsLocaleKey());
+        saveAct.InitAction(syncDelegate => syncDelegate.Target = SaveConfigs, metaData.ID);
         yield return saveAct;
 
         DataFeedValueAction<string> resetAct = new DataFeedValueAction<string>();
-        resetAct.InitBase("ResetConfig", path, groupKeys, "Reset ALL Config Categories", "Reset all categories from the currently selected Plugin's Configs");
-        resetAct.InitAction(syncDelegate => syncDelegate.Target = ResetConfigs, meta.ID);
+        resetAct.InitBase("ResetConfig", path, groupKeys, "Reset ALL Config Categories", "Settings.BepInEx.Plugins.ResetConfig".AsLocaleKey());
+        resetAct.InitAction(syncDelegate => syncDelegate.Target = ResetConfigs, metaData.ID);
         yield return resetAct;
     }
 
     private static async IAsyncEnumerable<DataFeedItem> GetDummyAsync(DataFeedItem item)
     {
         await Task.CompletedTask;
-        
+
         yield return item;
     }
 
     [SyncMethod(typeof(Delegate), null)]
     private static void SaveConfigs(string pluginId)
     {
-        BepisModSettings.Log.LogDebug($"Saving Configs for {pluginId}");
+        Plugin.Log.LogDebug($"Saving Configs for {pluginId}");
         if (pluginId == "BepInEx.Core")
         {
             ConfigFile.CoreConfig.Save();
@@ -353,7 +398,7 @@ public class DataFeedInjector
         {
             if (CurrentPath == null || CurrentPath.Count < 2)
             {
-                BepisModSettings.Log.LogWarning("ResetConfigs called with invalid path.");
+                Plugin.Log.LogWarning("ResetConfigs called with invalid path.");
                 return;
             }
 
@@ -379,11 +424,11 @@ public class DataFeedInjector
                 entry.BoxedValue = entry.DefaultValue;
             }
 
-            BepisModSettings.Log.LogInfo($"Configs for {pluginId} have been reset.");
+            Plugin.Log.LogInfo($"Configs for {pluginId} have been reset.");
         }
         catch (Exception e)
         {
-            BepisModSettings.Log.LogError(e);
+            Plugin.Log.LogError(e);
         }
     }
 
@@ -394,7 +439,7 @@ public class DataFeedInjector
         {
             if (CurrentPath == null || CurrentPath.Count < 2)
             {
-                BepisModSettings.Log.LogWarning("ResetConfigSection called with invalid path.");
+                Plugin.Log.LogWarning("ResetConfigSection called with invalid path.");
                 return;
             }
 
@@ -428,11 +473,11 @@ public class DataFeedInjector
                 entry.BoxedValue = entry.DefaultValue;
             }
 
-            BepisModSettings.Log.LogInfo($"Configs for {pluginId}-{section} have been reset.");
+            Plugin.Log.LogInfo($"Configs for {pluginId}-{section} have been reset.");
         }
         catch (Exception e)
         {
-            BepisModSettings.Log.LogError(e);
+            Plugin.Log.LogError(e);
         }
     }
 }
