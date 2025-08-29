@@ -7,27 +7,29 @@
     "Settings.Category.BepInEx": "BepInEx",
 	
     "Settings.BepInEx": "BepInEx",
-	"Settings.BepInEx.Core": "BepInEx Core Config",
-	"Settings.BepInEx.Core.Breadcrumb": "BepInEx Core Config",
-	
-	"Settings.BepInEx.Plugin": "{name}",
-	"Settings.BepInEx.Plugin.Breadcrumb": "{name}",
-	"Settings.BepInEx.Plugin.Description": "{name}\n{guid}\n({version})",
-	
+    
+	"Settings.BepInEx.Core": "BepInEx Core",
+	"Settings.BepInEx.Core.Breadcrumb": "BepInEx Core",
+	"Settings.BepInEx.Core.Config": "BepInEx Core Config",
+	"Settings.BepInEx.Core.Config.Breadcrumb": "BepInEx Core Config",
+    
+    "Settings.BepInEx.Plugins": "BepInEx Plugins",
 	"Settings.BepInEx.Plugins.LoadedPlugins": "Loaded Plugins",
 	"Settings.BepInEx.Plugins.NoConfigs": "This Plugin has No Configs",
-	
-	"Settings.BepInEx.Plugins.Configs.Default": "{name} : {type}",
-	"Settings.BepInEx.Plugins.Configs.Value": "{name} : {value}",
-	"Settings.BepInEx.Plugins.Configs.Name": "{name}",
-	"Settings.BepInEx.Plugins.Configs.Description": "{description}",
+	"Settings.BepInEx.Plugins.NoPlugins": "There is no Plugins Loaded",
+    
+    "Settings.BepInEx.Plugins.Config.FlagsEnum": "PlaceHolder",
+    "Settings.BepInEx.Plugins.Config.FlagsEnum.Description": "Toggles the '{name}' enum flag.",
 	
 	"Settings.BepInEx.Plugins.Error": "An Error has occurred",
 	
 	"Settings.BepInEx.Plugins.Actions": "Actions",
-	"Settings.BepInEx.Plugins.SaveConfig": "Save the currently selected Plugin's Configs",
-	"Settings.BepInEx.Plugins.ResetConfig": "Reset all categories from the currently selected Plugin's Configs",
-	
+	"Settings.BepInEx.Plugins.SaveConfig": "Save all Configs",
+	"Settings.BepInEx.Plugins.SaveConfig.Description": "Save the currently selected Plugin's Configs",
+	"Settings.BepInEx.Plugins.ResetConfig": "Reset all Configs",
+	"Settings.BepInEx.Plugins.ResetConfig.Description": "Reset all categories from the currently selected Plugin's Configs",
+	"Settings.BepInEx.Plugins.ResetConfig.Confirm": "Are you sure?",
+    
 	"Settings.BepInEx.Plugins.Metadata": "Metadata",
 	"Settings.BepInEx.Plugins.Guid": "Mod ID",
 	"Settings.BepInEx.Plugins.Author": "Author(s)",

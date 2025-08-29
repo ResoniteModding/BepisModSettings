@@ -10,22 +10,6 @@ public class BepisSettings : SettingComponent<BepisSettings>
 {
     public override bool UserspaceOnly => true;
 
-    // protected override void OnStart()
-    // {
-    //     AddLocale();
-    // }
-    // 
-    // protected override void OnAwake()
-    // {
-    //     AddLocale();
-    // }
-    // 
-    // private static void AddLocale()
-    // {
-    //     SettingsLocaleHelper.AddLocaleString("Settings.Category.BepInEx", "BepInEx", true);
-    //     SettingsLocaleHelper.AddLocaleString("Settings.BepInEx", "BepInEx", true);
-    // }
-
     protected override void InitializeSyncMembers()
     {
         base.InitializeSyncMembers();

@@ -6,10 +6,8 @@ using FrooxEngine;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using BepInEx.Configuration;
 using BepInEx.NET.Common;
 
@@ -17,6 +15,7 @@ namespace BepisModSettings;
 
 [ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
+[BepInDependency(BepisLocaleLoader.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
 public class Plugin : BasePlugin
 {
     internal new static ManualLogSource Log;
@@ -42,20 +41,6 @@ public class Plugin : BasePlugin
 
         HarmonyInstance.Patch(targetMethod, postfix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(EnumeratePostfix))));
         HarmonyInstance.PatchAll();
-
-        Task.Run(async () =>
-        {
-            while (Engine.Current == null || Userspace.UserspaceWorld == null)
-            {
-                await Task.Delay(10);
-            }
-
-            await Task.Delay(5000);
-
-            if (NetChainloader.Instance.Plugins.Count <= 0) return;
-
-            NetChainloader.Instance.Plugins.Values.Do(SettingsLocaleHelper.AddLocaleFromPlugin);
-        });
 
         Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
     }

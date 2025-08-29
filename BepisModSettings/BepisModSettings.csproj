@@ -20,14 +20,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile" />
-        <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*" />
-        <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*" />
+        <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile"/>
+        <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*"/>
+        <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*"/>
     </ItemGroup>
 
     <!-- NuGet fallback stripped game references -->
     <ItemGroup Condition="!Exists('$(GamePath)')">
-        <PackageReference Include="Resonite.GameLibs" Version="2025.*" />
+        <PackageReference Include="Resonite.GameLibs" Version="2025.*"/>
     </ItemGroup>
 
     <!-- Local game references -->
@@ -52,16 +52,34 @@
             <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
             <Private>False</Private>
         </Reference>
+        <Reference Include="Protoflux.Nodes.FrooxEngine">
+            <HintPath>$(GamePath)Protoflux.Nodes.FrooxEngine.dll</HintPath>
+            <Private>False</Private>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- TODO: Remove this when it's an actual package!! -->
+        <Reference Include="BepisLocaleLoader">
+            <HintPath>$(GamePath)\BepInEx\plugins\BepisLocaleLoader\BepisLocaleLoader.dll</HintPath>
+        </Reference>
     </ItemGroup>
 
     <!-- Post-build copy to game plugins folder -->
     <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(GITHUB_ACTIONS)' != 'true'">
         <ItemGroup>
-        <PluginFiles Include="$(TargetPath)" />
-        <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
+            <PluginFiles Include="$(TargetPath)"/>
+            <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')"/>
         </ItemGroup>
-        
-        <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" />
-        <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
+
+        <ItemGroup>
+            <LocaleFiles Include="$(MSBuildProjectDirectory)\Locale\*" Condition="Exists('$(MSBuildProjectDirectory)\Locale')"/>
+        </ItemGroup>
+
+        <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" SkipUnchangedFiles="false"/>
+        <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'"/>
+
+        <Copy SourceFiles="@(LocaleFiles)" DestinationFolder="$(PluginTargetDir)\Locale" SkipUnchangedFiles="false" Condition="'$(CopyToPlugins)' == 'true'"/>
+        <Message Text="Copied locale files to $(PluginTargetDir)\Locale" Importance="high" Condition="'$(CopyToPlugins)' == 'true'"/>
     </Target>
 </Project>

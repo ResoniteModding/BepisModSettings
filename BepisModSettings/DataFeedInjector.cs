@@ -9,57 +9,54 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
-using BepInEx.Logging;
+using BepisLocaleLoader;
+using ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Variables;
 
 namespace BepisModSettings;
 
-public class DataFeedInjector
+public static class DataFeedInjector
 {
-    private static IReadOnlyList<string> CurrentPath { get; set; }
-
     internal static async IAsyncEnumerable<DataFeedItem> ReplaceEnumerable(IReadOnlyList<string> path)
     {
         Plugin.Log.LogDebug($"Current Path: {string.Join(" -> ", path)}");
-        CurrentPath = path;
 
         // Handle root category
         if (path.Count == 1)
         {
-            DataFeedCategory bepisCategory = new DataFeedCategory();
-            bepisCategory.InitBase("BepInEx.Core", path, null, "Settings.BepInEx.Core".AsLocaleKey());
-            yield return bepisCategory;
+            DataFeedGroup plguinsGroup = new DataFeedGroup();
+            plguinsGroup.InitBase("BepInExPlugins", path, null, "Settings.BepInEx.Plugins".AsLocaleKey());
+            yield return plguinsGroup;
 
-            DataFeedGroup bepisGroup = new DataFeedGroup();
-            bepisGroup.InitBase("BepInEx", path, null, "Settings.BepInEx".AsLocaleKey());
-            yield return bepisGroup;
+            DataFeedGrid pluginsGrid = new DataFeedGrid();
+            pluginsGrid.InitBase("PluginsGrid", path, ["BepInExPlugins"], "Settings.BepInEx.LoadedPlugins".AsLocaleKey());
+            yield return pluginsGrid;
 
-            DataFeedGrid loadedPluginsGrid = new DataFeedGrid();
-            loadedPluginsGrid.InitBase("LoadedPluginsGrid", path, ["BepInEx"], "Settings.BepInEx.LoadedPlugins".AsLocaleKey());
-            yield return loadedPluginsGrid;
-
-            string[] loadedPluginsGroup = new[] { "BepInEx", "LoadedPluginsGrid" };
+            string[] loadedPluginsGroup = new[] { "BepInExPlugins", "PluginsGrid" };
 
             if (NetChainloader.Instance.Plugins.Count > 0)
             {
-                foreach (PluginInfo plugin in NetChainloader.Instance.Plugins.Values)
+                List<PluginInfo> sortedPlugins = new List<PluginInfo>(NetChainloader.Instance.Plugins.Values);
+                sortedPlugins.Sort((a, b) => string.Compare(a.Metadata.Name, b.Metadata.Name, StringComparison.OrdinalIgnoreCase));
+                foreach (PluginInfo plugin in sortedPlugins)
                 {
-                    if (plugin == null) continue;
-
                     BepInPlugin metaData = plugin.Metadata;
+
+                    string pluginname = metaData.Name;
                     string pluginGuid = metaData.GUID;
 
-                    LocaleString nameKey = "Settings.BepInEx.Plugin.Breadcrumb".AsLocaleKey(("name", metaData.Name));
-                    LocaleString description = "Settings.BepInEx.Plugin.Description".AsLocaleKey(("name", metaData.Name), ("guid", metaData.GUID), ("version", metaData.Version));
+                    LocaleString nameKey = pluginname;
+                    LocaleString description = $"{pluginname}\n{pluginGuid}\n({metaData.Version})"; // "Settings.BepInEx.Plugin.Description".AsLocaleKey(("name", pluginname), ("guid", metaData.GUID), ("version", metaData.Version));
 
-                    if (SettingsLocaleHelper.PluginsWithLocales.Contains(plugin))
+                    if (LocaleLoader.PluginsWithLocales.Contains(plugin))
                     {
-                        nameKey = $"Settings.{pluginGuid}.Breadcrumb".AsLocaleKey();
+                        nameKey = $"Settings.{pluginGuid}".AsLocaleKey();
                         description = $"Settings.{pluginGuid}.Description".AsLocaleKey();
                     }
                     else
                     {
-                        SettingsLocaleHelper.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", metaData.Name);
+                        LocaleLoader.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", pluginname, authors: PluginMetadata.AUTHORS);
                     }
 
                     DataFeedCategory loadedPlugin = new DataFeedCategory();
@@ -67,38 +64,54 @@ public class DataFeedInjector
                     yield return loadedPlugin;
                 }
             }
+            else
+            {
+                DataFeedLabel noPlugins = new DataFeedLabel();
+                noPlugins.InitBase("NoPlugins", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoPlugins".AsLocaleKey());
+                yield return noPlugins;
+            }
+
+            DataFeedGroup coreGroup = new DataFeedGroup();
+            coreGroup.InitBase("BepInExCore", path, null, "Settings.BepInEx.Core".AsLocaleKey());
+            yield return coreGroup;
+
+            string[] coreGroupParam = new[] { "BepInExCore" };
+
+            DataFeedCategory bepisCategory = new DataFeedCategory();
+            bepisCategory.InitBase("BepInEx.Core.Config", path, coreGroupParam, "Settings.BepInEx.Core.Config".AsLocaleKey());
+            yield return bepisCategory;
         }
         // Handle plugin configs page
         else if (path.Count == 2)
         {
             string pluginId = path[1];
 
-            ConfigFile file;
-            ModMeta meta;
+            ConfigFile configFile;
+            ModMeta metadata;
 
-            if (pluginId == "BepInEx.Core")
+            if (pluginId == "BepInEx.Core.Config")
             {
-                file = ConfigFile.CoreConfig;
-                meta = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), pluginId, null, null);
+                configFile = ConfigFile.CoreConfig;
+                metadata = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), "BepInEx.Core", null, null);
             }
             else
             {
                 PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
                 if (pluginInfo?.Instance is not BasePlugin plugin) yield break;
 
-                BepInPlugin metaData = MetadataHelper.GetMetadata(plugin);
-                ResonitePlugin resonitePlugin = metaData as ResonitePlugin;
+                BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin);
+                ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
 
-                file = plugin.Config;
-                meta = new ModMeta(metaData.Name, metaData.Version.ToString(), pluginId, resonitePlugin?.Author, resonitePlugin?.Link);
+                configFile = plugin.Config;
+                metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pluginId, resonitePlugin?.Author, resonitePlugin?.Link);
             }
 
-            if (string.IsNullOrWhiteSpace(meta.Name))
-                meta.Name = "<i>Unknown</i>";
-            if (string.IsNullOrWhiteSpace(meta.Version))
-                meta.Version = "<i>Unknown</i>";
-            if (string.IsNullOrWhiteSpace(meta.ID))
-                meta.ID = "<i>Unknown</i>";
+            if (string.IsNullOrWhiteSpace(metadata.Name))
+                metadata.Name = "<i>Unknown</i>";
+            if (string.IsNullOrWhiteSpace(metadata.Version))
+                metadata.Version = "<i>Unknown</i>";
+            if (string.IsNullOrWhiteSpace(metadata.ID))
+                metadata.ID = "<i>Unknown</i>";
 
             // Settings
             // DataFeedGroup settings = new DataFeedGroup();
@@ -113,7 +126,7 @@ public class DataFeedInjector
 
             // string[] configsGroup = new[] { "Configs" };
 
-            if (file.Count == 0)
+            if (configFile.Count == 0)
             {
                 DataFeedLabel noConfigs = new DataFeedLabel();
                 noConfigs.InitBase("NoConfigs", path, null, "Settings.BepInEx.Plugins.NoConfigs".AsLocaleKey());
@@ -121,8 +134,8 @@ public class DataFeedInjector
             }
             else
             {
-                IAsyncEnumerable<DataFeedItem> things = EnumerateConfigs(file, meta, path);
-                await foreach (DataFeedItem item in things)
+                IAsyncEnumerable<DataFeedItem> configs = EnumerateConfigs(configFile, metadata, path);
+                await foreach (DataFeedItem item in configs)
                 {
                     yield return item;
                 }
@@ -137,23 +150,23 @@ public class DataFeedInjector
 
             DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
             idIndicator.InitBase("Id", path, metadataGroup, "Settings.BepInEx.Plugins.Guid".AsLocaleKey());
-            idIndicator.InitSetupValue(field => field.Value = meta.ID);
+            idIndicator.InitSetupValue(field => field.Value = metadata.ID);
             yield return idIndicator;
 
-            if (!string.IsNullOrWhiteSpace(meta.Author))
+            if (!string.IsNullOrWhiteSpace(metadata.Author))
             {
                 DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
                 authorsIndicator.InitBase("Author", path, metadataGroup, "Settings.BepInEx.Plugins.Author".AsLocaleKey());
-                authorsIndicator.InitSetupValue(field => field.Value = meta.Author);
+                authorsIndicator.InitSetupValue(field => field.Value = metadata.Author);
                 yield return authorsIndicator;
             }
 
             DataFeedIndicator<string> versionIndicator = new DataFeedIndicator<string>();
             versionIndicator.InitBase("Version", path, metadataGroup, "Settings.BepInEx.Plugins.Version".AsLocaleKey());
-            versionIndicator.InitSetupValue(field => field.Value = meta.Version);
+            versionIndicator.InitSetupValue(field => field.Value = metadata.Version);
             yield return versionIndicator;
 
-            if (!string.IsNullOrWhiteSpace(meta.Link) && Uri.TryCreate(meta.Link, UriKind.Absolute, out var uri))
+            if (!string.IsNullOrWhiteSpace(metadata.Link) && Uri.TryCreate(metadata.Link, UriKind.Absolute, out var uri))
             {
                 var modHyperlink = new DataFeedAction();
                 modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey());
@@ -209,28 +222,33 @@ public class DataFeedInjector
                     configs.InitBase(section, path, null, section);
                     configs.InitResetAction(a =>
                     {
-                        a.Target = ResetConfigSection;
-
-                        Comment com = a.Slot.AttachComponent<Comment>();
-
                         Button but = a.Slot.GetComponentInChildren<Button>();
-                        but.LocalPressed += (_, _) => com.Text.Value = $"{section}-Resetting";
+                        if (but == null) return;
+
+                        but.LocalPressed += (b, _) =>
+                        {
+                            Slot resetBtn = b.Slot.FindParent(x => x.Name == "Reset Button");
+                            var store = resetBtn?.GetComponentInChildren<DataModelValueFieldStore<bool>.Store>();
+                            if (store == null) return;
+
+                            if (!store.Value.Value) return;
+                            ResetConfigSection(metaData.ID, section);
+                        };
                     });
                     yield return configs;
                 }
 
                 string initKey = section + "." + config.Definition.Key;
-                string key = added.Contains(initKey)
-                        ? initKey + added.Count
-                        : initKey;
-
-                LocaleString defaultKey = "Settings.BepInEx.Plugins.Configs.Default".AsLocaleKey(("name", config.Definition.Key), ("type", valueType));
-                LocaleString valueKey = "Settings.BepInEx.Plugins.Configs.Value".AsLocaleKey(("name", config.Definition.Key), ("value", config.BoxedValue));
-                LocaleString nameKey = "Settings.BepInEx.Plugins.Configs.Name".AsLocaleKey(("name", config.Definition.Key));
-                LocaleString descKey = "Settings.BepInEx.Plugins.Configs.Description".AsLocaleKey(("description", config.Description.Description));
-                // TODO: Add Key for SubCategories
+                string key = added.Contains(initKey) ? initKey + added.Count : initKey;
 
                 // TODO: Figure out how to actually Localize config keys.
+                // TODO: Add Key for SubCategories
+
+                string defaultKey = $"{config.Definition.Key} : {valueType}";       // "Settings.BepInEx.Plugins.Configs.Default".AsLocaleKey(("name", config.Definition.Key), ("type", valueType));
+                string valueKey = $"{config.Definition.Key} : {config.BoxedValue}"; // "Settings.BepInEx.Plugins.Configs.Value".AsLocaleKey(("name", config.Definition.Key), ("value", config.BoxedValue));
+                string nameKey = config.Definition.Key;                             // "Settings.BepInEx.Plugins.Configs.Name".AsLocaleKey(("name", config.Definition.Key));
+                string descKey = config.Description.Description;                    // "Settings.BepInEx.Plugins.Configs.Description".AsLocaleKey(("description", config.Description.Description));
+
                 // if (SettingsLocaleHelper.PluginsWithLocales.Any(x => x.Metadata.GUID == metaData.ID))
                 // {
                 //     nameKey = config.Definition.Key.AsLocaleKey();
@@ -283,7 +301,7 @@ public class DataFeedInjector
                     {
                         if (valueType.GetCustomAttribute<FlagsAttribute>() != null)
                         {
-                            SettingsLocaleHelper.AddLocaleString($"Settings.{key}.Breadcrumb", initKey);
+                            LocaleLoader.AddLocaleString($"Settings.{key}.Breadcrumb", initKey, authors: PluginMetadata.AUTHORS);
 
                             CategoryHandlers.Add(key, path2 => (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
                             enumItem = new DataFeedCategory();
@@ -331,7 +349,6 @@ public class DataFeedInjector
                 }
                 else
                 {
-                    // TODO: See TODO in DataFeedHelpers.cs
                     DataFeedItem valueItem;
 
                     try
@@ -356,14 +373,48 @@ public class DataFeedInjector
         yield return group;
         string[] groupKeys = [groupId];
 
-        DataFeedValueAction<string> saveAct = new DataFeedValueAction<string>();
-        saveAct.InitBase("SaveConfig", path, groupKeys, "Save Config File", "Settings.BepInEx.Plugins.SaveConfig".AsLocaleKey());
-        saveAct.InitAction(syncDelegate => syncDelegate.Target = SaveConfigs, metaData.ID);
+        DataFeedAction saveAct = new DataFeedAction();
+        saveAct.InitBase("SaveConfig", path, groupKeys, "Settings.BepInEx.Plugins.SaveConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.SaveConfig.Description".AsLocaleKey());
+        saveAct.InitAction(syncDelegate =>
+        {
+            Button btn = syncDelegate.Slot.GetComponent<Button>();
+            if (btn == null) return;
+
+            btn.LocalPressed += (_, _) => SaveConfigs(metaData.ID);
+        });
         yield return saveAct;
 
-        DataFeedValueAction<string> resetAct = new DataFeedValueAction<string>();
-        resetAct.InitBase("ResetConfig", path, groupKeys, "Reset ALL Config Categories", "Settings.BepInEx.Plugins.ResetConfig".AsLocaleKey());
-        resetAct.InitAction(syncDelegate => syncDelegate.Target = ResetConfigs, metaData.ID);
+        DataFeedAction resetAct = new DataFeedAction();
+        resetAct.InitBase("ResetConfig", path, groupKeys, "Settings.BepInEx.Plugins.ResetConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.ResetConfig.Description".AsLocaleKey());
+        resetAct.InitAction(syncDelegate =>
+        {
+            Button btn = syncDelegate.Slot?.GetComponent<Button>();
+            if (btn == null) return;
+
+            ValueMultiDriver<bool> valueDriver = btn.Slot.GetComponent<ValueMultiDriver<bool>>();
+            if (valueDriver != null && valueDriver.Drives.Count > 0)
+            {
+                SetColor(0, new colorX(0.36f, 0.2f, 0.23f));
+                SetColor(1, new colorX(1f, 0.46f, 0.46f));
+                SetColor(3, new colorX(0.88f, 0.88f, 0.88f));
+            }
+
+            btn.LocalPressed += (b, _) => ResetConfigs(b, metaData.ID, valueDriver);
+
+            return;
+
+            void SetColor(int index, colorX color)
+            {
+                if (index >= valueDriver.Drives.Count) return;
+
+                FieldDrive<bool> drive = valueDriver.Drives[index];
+                BooleanValueDriver<colorX> colorDriver = btn.Slot.GetComponent<BooleanValueDriver<colorX>>(x => x.State == drive.Target);
+                if (colorDriver != null)
+                {
+                    colorDriver.TrueValue.Value = color;
+                }
+            }
+        });
         yield return resetAct;
     }
 
@@ -374,7 +425,6 @@ public class DataFeedInjector
         yield return item;
     }
 
-    [SyncMethod(typeof(Delegate), null)]
     private static void SaveConfigs(string pluginId)
     {
         Plugin.Log.LogDebug($"Saving Configs for {pluginId}");
@@ -382,29 +432,45 @@ public class DataFeedInjector
         {
             ConfigFile.CoreConfig.Save();
         }
-        else if (
-            NetChainloader.Instance.Plugins.TryGetValue(pluginId, out var pluginInfo) &&
-            pluginInfo.Instance is BasePlugin plugin
-        )
+        else if (NetChainloader.Instance.Plugins.TryGetValue(pluginId, out var pluginInfo) && pluginInfo.Instance is BasePlugin plugin)
         {
             plugin.Config?.Save();
         }
     }
 
-    [SyncMethod(typeof(Delegate), null)]
-    private static void ResetConfigs(string pluginId)
+    private static bool _resetPressed;
+    private static CancellationTokenSource _cts;
+
+    private static void ResetConfigs(IButton btn, string pluginId, ValueMultiDriver<bool> vmd = null)
     {
         try
         {
-            if (CurrentPath == null || CurrentPath.Count < 2)
+            if (!_resetPressed)
             {
-                Plugin.Log.LogWarning("ResetConfigs called with invalid path.");
+                btn.LabelTextField.SetLocalized("Settings.BepInEx.Plugins.ResetConfig.Confirm");
+
+                _cts?.Cancel();
+                _cts = new CancellationTokenSource();
+                CancellationToken token = _cts.Token;
+
+                Task.Run(async () =>
+                {
+                    await Task.Delay(2000, token);
+
+                    if (!_resetPressed) return;
+                    btn.RunSynchronously(() => btn.LabelTextField.SetLocalized("Settings.BepInEx.Plugins.ResetConfig"));
+                    _resetPressed = false;
+                    if (vmd != null) vmd.Value.Value = _resetPressed;
+                }, token);
+
+                _resetPressed = true;
+                if (vmd != null) vmd.Value.Value = _resetPressed;
                 return;
             }
 
             ConfigFile configFile;
 
-            if (pluginId != "BepInEx.Core")
+            if (pluginId != "BepInEx.Core.Config")
             {
                 PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
 
@@ -424,6 +490,13 @@ public class DataFeedInjector
                 entry.BoxedValue = entry.DefaultValue;
             }
 
+            btn.LabelTextField.SetLocalized("Settings.BepInEx.Plugins.ResetConfig");
+            _resetPressed = false;
+            if (vmd != null) vmd.Value.Value = _resetPressed;
+
+            _cts?.Cancel();
+            _cts = null;
+
             Plugin.Log.LogInfo($"Configs for {pluginId} have been reset.");
         }
         catch (Exception e)
@@ -432,26 +505,13 @@ public class DataFeedInjector
         }
     }
 
-    [SyncMethod(typeof(Delegate), null)]
-    private static void ResetConfigSection()
+    private static void ResetConfigSection(string pluginId, string section)
     {
         try
         {
-            if (CurrentPath == null || CurrentPath.Count < 2)
-            {
-                Plugin.Log.LogWarning("ResetConfigSection called with invalid path.");
-                return;
-            }
-
-            Comment com = Userspace.UserspaceWorld?.RootSlot?.GetComponentInChildren<Comment>(x => x?.Text?.Value?.Contains("-Resetting") ?? false);
-            if (com == null) return;
-
-            string section = com.Text.Value.Split("-")[0];
-            com.Text.Value = "";
-
             ConfigFile configFile;
-            string pluginId = CurrentPath[1];
-            if (pluginId != "BepInEx.Core")
+
+            if (pluginId != "BepInEx.Core.Config")
             {
                 PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
 

@@ -90,8 +90,6 @@ public static class DataFeedHelpers
             }
 
             MethodInfo method = AccessTools.Method(typeof(DataFeedHelpers), nameof(SyncWithNullableConfigKeyHasValue)).MakeGenericMethod(configKey.SettingType);
-            if (method == null) return;
-
             method.Invoke(null, new object[] { configKey });
         });
         yield return nullableToggle;
@@ -218,7 +216,7 @@ public static class DataFeedHelpers
 
             string name = Enum.GetName(enumType, val);
             DataFeedToggle toggle = new DataFeedToggle();
-            toggle.InitBase(name, path, groupKeys, name, $"Toggles the '{name}' enum flag.");
+            toggle.InitBase(name, path, groupKeys, name, "Settings.BepInEx.Plugins.Config.FlagsEnum.Description".AsLocaleKey(("name", name)));
             toggle.InitSetupValue(field =>
             {
                 bool skipNextChange = false;
@@ -368,7 +366,7 @@ public static class DataFeedHelpers
             }
             else
             {
-                Plugin.Log.LogError("InnerContainerItem slot is null in EnsureDataFeedValueFieldTemplate!");
+                Plugin.Log.LogError("InnerContainerItem slot is null in DoInject!");
             }
 
             mapping.Template.Target = (FeedItemInterface)feedValueFieldInterface;
@@ -381,7 +379,7 @@ public static class DataFeedHelpers
         }
         else
         {
-            Plugin.Log.LogError("Could not find Templates slot in EnsureDataFeedValueFieldTemplate!");
+            Plugin.Log.LogError("Could not find Templates slot in DoInject!");
         }
     }
 }
