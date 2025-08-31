@@ -6,10 +6,13 @@ using FrooxEngine;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using BepInEx.Configuration;
 using BepInEx.NET.Common;
+using BepisModSettings.DataFeeds;
 
 namespace BepisModSettings;
 
@@ -32,32 +35,54 @@ public class Plugin : BasePlugin
 
         ShowHidden = Config.Bind("General", "ShowHidden", false, "Whether to show hidden Configs");
 
-        MethodInfo targetMethod = AccessTools.Method(typeof(SettingsDataFeed), nameof(SettingsDataFeed.Enumerate), [typeof(IReadOnlyList<string>), typeof(IReadOnlyList<string>), typeof(string), typeof(object)]);
-        if (targetMethod == null)
-        {
-            Log.LogError("Failed to find Enumerate method in SettingsDataFeed.");
-            return;
-        }
-
-        HarmonyInstance.Patch(targetMethod, postfix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(EnumeratePostfix))));
         HarmonyInstance.PatchAll();
+
+        // TODO: Replace this with an event when BepInExResoniteShim updates.
+        Task.Run(async () =>
+        {
+            while (Engine.Current == null)
+            {
+                await Task.Delay(10);
+            }
+
+            Engine.Current.OnReady += () =>
+            {
+                FieldInfo categoryField = AccessTools.Field(typeof(Settings), "_categoryInfos");
+                if (categoryField != null && categoryField.GetValue(null) is Dictionary<string, SettingCategoryInfo> categoryInfos)
+                {
+                    SettingCategoryInfo bepInExCategory = new SettingCategoryInfo(new Uri("https://avatars.githubusercontent.com/u/39589027?s=200&v=4.png"), 99L);
+                    bepInExCategory.InitKey("BepInEx");
+
+                    categoryInfos.Add(bepInExCategory.Key, bepInExCategory);
+                }
+                else
+                {
+                    Log.LogError("Failed to find _categoryInfos field in Settings.");
+                }
+            };
+        });
 
         Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
     }
 
-    private static IAsyncEnumerable<DataFeedItem> EnumeratePostfix(IAsyncEnumerable<DataFeedItem> __result, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
+    [HarmonyPatch(typeof(SettingsDataFeed), nameof(SettingsDataFeed.Enumerate), new Type[] { typeof(IReadOnlyList<string>), typeof(IReadOnlyList<string>), typeof(string), typeof(object) })]
+    private static class EnumeratorPostfix
     {
-        try
+        [SuppressMessage("ReSharper", "PossibleMultipleEnumeration")]
+        private static IAsyncEnumerable<DataFeedItem> Postfix(IAsyncEnumerable<DataFeedItem> __result, SettingsDataFeed __instance, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
         {
-            return path.Contains("BepInEx")
-                    ? DataFeedInjector.ReplaceEnumerable(path)
-                    : __result;
-        }
-        catch (Exception ex)
-        {
-            Log.LogError($"Failed to generate replacement for {nameof(SettingsDataFeed)}.{nameof(SettingsDataFeed.Enumerate)} - using original result.");
-            Log.LogError(ex.Message);
-            return __result;
+            try
+            {
+                if (!path.Contains("BepInEx")) return __result;
+
+                return __instance.World.IsUserspace() ? DataFeedInjector.ReplaceEnumerable(__result, path) : DataFeedInjector.NotUserspaceEnumerator(path);
+            }
+            catch (Exception ex)
+            {
+                Log.LogError($"Failed to generate replacement for {nameof(SettingsDataFeed)}.{nameof(SettingsDataFeed.Enumerate)} - using original result.");
+                Log.LogError(ex.Message);
+                return __result;
+            }
         }
     }
 
@@ -74,11 +99,5 @@ public class Plugin : BasePlugin
 
             return false;
         }
-    }
-
-    public override bool Unload()
-    {
-        HarmonyInstance.UnpatchSelf();
-        return true;
     }
 }

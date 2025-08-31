@@ -1,206 +1,112 @@
-﻿using BepInEx;
-using BepInEx.Configuration;
-using BepInEx.NET.Common;
-using BepInExResoniteShim;
-using Elements.Core;
-using FrooxEngine;
-using FrooxEngine.UIX;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using BepInEx;
+using BepInEx.Configuration;
+using BepInEx.NET.Common;
+using BepInExResoniteShim;
 using BepisLocaleLoader;
+using Elements.Core;
+using FrooxEngine;
+using FrooxEngine.UIX;
 using ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Variables;
 
-namespace BepisModSettings;
+namespace BepisModSettings.DataFeeds;
 
-public static class DataFeedInjector
+public static class BepisPluginPage
 {
-    internal static async IAsyncEnumerable<DataFeedItem> ReplaceEnumerable(IReadOnlyList<string> path)
+    internal static readonly Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>> CategoryHandlers = new Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>>();
+
+    internal static async IAsyncEnumerable<DataFeedItem> Enumerate(IReadOnlyList<string> path)
     {
-        Plugin.Log.LogDebug($"Current Path: {string.Join(" -> ", path)}");
+        await Task.CompletedTask;
 
-        // Handle root category
-        if (path.Count == 1)
+        string pluginId = path[1];
+
+        ConfigFile configFile;
+        ModMeta metadata;
+
+        if (pluginId == "BepInEx.Core.Config")
         {
-            DataFeedGroup plguinsGroup = new DataFeedGroup();
-            plguinsGroup.InitBase("BepInExPlugins", path, null, "Settings.BepInEx.Plugins".AsLocaleKey());
-            yield return plguinsGroup;
-
-            DataFeedGrid pluginsGrid = new DataFeedGrid();
-            pluginsGrid.InitBase("PluginsGrid", path, ["BepInExPlugins"], "Settings.BepInEx.LoadedPlugins".AsLocaleKey());
-            yield return pluginsGrid;
-
-            string[] loadedPluginsGroup = new[] { "BepInExPlugins", "PluginsGrid" };
-
-            if (NetChainloader.Instance.Plugins.Count > 0)
-            {
-                List<PluginInfo> sortedPlugins = new List<PluginInfo>(NetChainloader.Instance.Plugins.Values);
-                sortedPlugins.Sort((a, b) => string.Compare(a.Metadata.Name, b.Metadata.Name, StringComparison.OrdinalIgnoreCase));
-                foreach (PluginInfo plugin in sortedPlugins)
-                {
-                    BepInPlugin metaData = plugin.Metadata;
-
-                    string pluginname = metaData.Name;
-                    string pluginGuid = metaData.GUID;
-
-                    LocaleString nameKey = pluginname;
-                    LocaleString description = $"{pluginname}\n{pluginGuid}\n({metaData.Version})"; // "Settings.BepInEx.Plugin.Description".AsLocaleKey(("name", pluginname), ("guid", metaData.GUID), ("version", metaData.Version));
-
-                    if (LocaleLoader.PluginsWithLocales.Contains(plugin))
-                    {
-                        nameKey = $"Settings.{pluginGuid}".AsLocaleKey();
-                        description = $"Settings.{pluginGuid}.Description".AsLocaleKey();
-                    }
-                    else
-                    {
-                        LocaleLoader.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", pluginname, authors: PluginMetadata.AUTHORS);
-                    }
-
-                    DataFeedCategory loadedPlugin = new DataFeedCategory();
-                    loadedPlugin.InitBase(pluginGuid, path, loadedPluginsGroup, nameKey, description);
-                    yield return loadedPlugin;
-                }
-            }
-            else
-            {
-                DataFeedLabel noPlugins = new DataFeedLabel();
-                noPlugins.InitBase("NoPlugins", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoPlugins".AsLocaleKey());
-                yield return noPlugins;
-            }
-
-            DataFeedGroup coreGroup = new DataFeedGroup();
-            coreGroup.InitBase("BepInExCore", path, null, "Settings.BepInEx.Core".AsLocaleKey());
-            yield return coreGroup;
-
-            string[] coreGroupParam = new[] { "BepInExCore" };
-
-            DataFeedCategory bepisCategory = new DataFeedCategory();
-            bepisCategory.InitBase("BepInEx.Core.Config", path, coreGroupParam, "Settings.BepInEx.Core.Config".AsLocaleKey());
-            yield return bepisCategory;
+            configFile = ConfigFile.CoreConfig;
+            metadata = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), "BepInEx.Core", null, null);
         }
-        // Handle plugin configs page
-        else if (path.Count == 2)
+        else
         {
-            string pluginId = path[1];
+            PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
+            if (pluginInfo?.Instance is not BasePlugin plugin) yield break;
 
-            ConfigFile configFile;
-            ModMeta metadata;
+            BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin);
+            ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
 
-            if (pluginId == "BepInEx.Core.Config")
+            configFile = plugin.Config;
+            metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pluginId, resonitePlugin?.Author, resonitePlugin?.Link);
+        }
+
+        if (string.IsNullOrWhiteSpace(metadata.Name))
+            metadata.Name = "<i>Unknown</i>";
+        if (string.IsNullOrWhiteSpace(metadata.Version))
+            metadata.Version = "<i>Unknown</i>";
+        if (string.IsNullOrWhiteSpace(metadata.ID))
+            metadata.ID = "<i>Unknown</i>";
+
+        if (configFile.Count == 0)
+        {
+            DataFeedLabel noConfigs = new DataFeedLabel();
+            noConfigs.InitBase("NoConfigs", path, null, "Settings.BepInEx.Plugins.NoConfigs".AsLocaleKey());
+            yield return noConfigs;
+        }
+        else
+        {
+            IAsyncEnumerable<DataFeedItem> configs = EnumerateConfigs(configFile, metadata, path);
+            await foreach (DataFeedItem item in configs)
             {
-                configFile = ConfigFile.CoreConfig;
-                metadata = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), "BepInEx.Core", null, null);
-            }
-            else
-            {
-                PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
-                if (pluginInfo?.Instance is not BasePlugin plugin) yield break;
-
-                BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin);
-                ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
-
-                configFile = plugin.Config;
-                metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pluginId, resonitePlugin?.Author, resonitePlugin?.Link);
-            }
-
-            if (string.IsNullOrWhiteSpace(metadata.Name))
-                metadata.Name = "<i>Unknown</i>";
-            if (string.IsNullOrWhiteSpace(metadata.Version))
-                metadata.Version = "<i>Unknown</i>";
-            if (string.IsNullOrWhiteSpace(metadata.ID))
-                metadata.ID = "<i>Unknown</i>";
-
-            // Settings
-            // DataFeedGroup settings = new DataFeedGroup();
-            // settings.InitBase("Settings", path, null, "Settings");
-            // yield return settings;
-
-            // Configs
-            // DataFeedResettableGroup configs = new DataFeedResettableGroup();
-            // configs.InitBase("Configs", path, null, "Configs");
-            // configs.InitResetAction(a => a.Target = ResetConfigs);
-            // yield return configs;
-
-            // string[] configsGroup = new[] { "Configs" };
-
-            if (configFile.Count == 0)
-            {
-                DataFeedLabel noConfigs = new DataFeedLabel();
-                noConfigs.InitBase("NoConfigs", path, null, "Settings.BepInEx.Plugins.NoConfigs".AsLocaleKey());
-                yield return noConfigs;
-            }
-            else
-            {
-                IAsyncEnumerable<DataFeedItem> configs = EnumerateConfigs(configFile, metadata, path);
-                await foreach (DataFeedItem item in configs)
-                {
-                    yield return item;
-                }
-            }
-
-            // Metadata
-            DataFeedGroup modGroup = new DataFeedGroup();
-            modGroup.InitBase("Metadata", path, null, "Settings.BepInEx.Plugins.Metadata".AsLocaleKey());
-            yield return modGroup;
-
-            string[] metadataGroup = new[] { "Metadata" };
-
-            DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
-            idIndicator.InitBase("Id", path, metadataGroup, "Settings.BepInEx.Plugins.Guid".AsLocaleKey());
-            idIndicator.InitSetupValue(field => field.Value = metadata.ID);
-            yield return idIndicator;
-
-            if (!string.IsNullOrWhiteSpace(metadata.Author))
-            {
-                DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
-                authorsIndicator.InitBase("Author", path, metadataGroup, "Settings.BepInEx.Plugins.Author".AsLocaleKey());
-                authorsIndicator.InitSetupValue(field => field.Value = metadata.Author);
-                yield return authorsIndicator;
-            }
-
-            DataFeedIndicator<string> versionIndicator = new DataFeedIndicator<string>();
-            versionIndicator.InitBase("Version", path, metadataGroup, "Settings.BepInEx.Plugins.Version".AsLocaleKey());
-            versionIndicator.InitSetupValue(field => field.Value = metadata.Version);
-            yield return versionIndicator;
-
-            if (!string.IsNullOrWhiteSpace(metadata.Link) && Uri.TryCreate(metadata.Link, UriKind.Absolute, out var uri))
-            {
-                var modHyperlink = new DataFeedAction();
-                modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey());
-                modHyperlink.InitAction(syncDelegate =>
-                {
-                    var slot = syncDelegate?.Slot;
-                    if (slot == null) return;
-
-                    slot.AttachComponent<Hyperlink>().URL.Value = uri;
-                });
-                yield return modHyperlink;
+                yield return item;
             }
         }
-        else if (path.Count >= 3)
+
+        // Metadata
+        DataFeedGroup modGroup = new DataFeedGroup();
+        modGroup.InitBase("Metadata", path, null, "Settings.BepInEx.Plugins.Metadata".AsLocaleKey());
+        yield return modGroup;
+
+        string[] metadataGroup = new[] { "Metadata" };
+
+        DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
+        idIndicator.InitBase("Id", path, metadataGroup, "Settings.BepInEx.Plugins.Guid".AsLocaleKey());
+        idIndicator.InitSetupValue(field => field.Value = metadata.ID);
+        yield return idIndicator;
+
+        if (!string.IsNullOrWhiteSpace(metadata.Author))
         {
-            if (CategoryHandlers.TryGetValue(path[^1], out Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> handler))
+            DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
+            authorsIndicator.InitBase("Author", path, metadataGroup, "Settings.BepInEx.Plugins.Author".AsLocaleKey());
+            authorsIndicator.InitSetupValue(field => field.Value = metadata.Author);
+            yield return authorsIndicator;
+        }
+
+        DataFeedIndicator<string> versionIndicator = new DataFeedIndicator<string>();
+        versionIndicator.InitBase("Version", path, metadataGroup, "Settings.BepInEx.Plugins.Version".AsLocaleKey());
+        versionIndicator.InitSetupValue(field => field.Value = metadata.Version);
+        yield return versionIndicator;
+
+        if (!string.IsNullOrWhiteSpace(metadata.Link) && Uri.TryCreate(metadata.Link, UriKind.Absolute, out var uri))
+        {
+            var modHyperlink = new DataFeedAction();
+            modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey());
+            modHyperlink.InitAction(syncDelegate =>
             {
-                await foreach (DataFeedItem item in handler(path))
-                {
-                    yield return item;
-                }
-            }
-            else
-            {
-                DataFeedLabel noConfigs = new DataFeedLabel();
-                noConfigs.InitBase("InvalidCategory", path, null, "Settings.BepInEx.Plugins.Error".AsLocaleKey());
-                yield return noConfigs;
-            }
+                var slot = syncDelegate?.Slot;
+                if (slot == null) return;
+
+                slot.AttachComponent<Hyperlink>().URL.Value = uri;
+            });
+            yield return modHyperlink;
         }
     }
-
-    private static readonly Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>> CategoryHandlers = new Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>>();
-
-    private record struct ModMeta(string Name, string Version, string ID, string Author, string Link);
 
     private static async IAsyncEnumerable<DataFeedItem> EnumerateConfigs(ConfigFile configFile, ModMeta metaData, IReadOnlyList<string> path)
     {

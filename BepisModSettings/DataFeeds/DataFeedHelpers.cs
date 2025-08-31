@@ -1,16 +1,16 @@
-﻿using BepInEx.Configuration;
-using FrooxEngine;
-using HarmonyLib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using BepInEx.Configuration;
 using Elements.Assets;
 using Elements.Core;
+using FrooxEngine;
 using FrooxEngine.UIX;
+using HarmonyLib;
 
-namespace BepisModSettings;
+namespace BepisModSettings.DataFeeds;
 
 // Edited Helper code is from - https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
 public static class DataFeedHelpers
@@ -59,9 +59,9 @@ public static class DataFeedHelpers
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
         valueField.InitSetupValue(field => field.SyncWithConfigKey(configKey));
 
-        if (configKey.SettingType.IsGoodInject())
+        if (configKey.SettingType.IsTypeInjectable())
         {
-            Preset.Slot.RunSynchronously(() => DoInject(configKey.SettingType));
+            Preset.Slot.RunSynchronously(() => InjectNewTemplateType(configKey.SettingType));
         }
 
         return valueField;
@@ -264,13 +264,13 @@ public static class DataFeedHelpers
         }
     }
 
-    private static bool IsGoodInject(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
+    private static bool IsTypeInjectable(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
 
-    private static void DoInject(Type typeToInject)
+    private static void InjectNewTemplateType(Type typeToInject)
     {
         if (Mapper == null) return;
 
-        if (!typeToInject.IsGoodInject())
+        if (!typeToInject.IsTypeInjectable())
         {
             Plugin.Log.LogError($"Attempted to inject unsupported editor type {typeToInject.GetNiceName()} in DoInject!");
             return;
