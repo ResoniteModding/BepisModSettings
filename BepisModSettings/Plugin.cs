@@ -27,13 +27,15 @@ public class Plugin : BasePlugin
     // basically try to get feature parity with ResoniteModSettings
 
     internal static ConfigEntry<bool> ShowHidden;
-
+    internal static ConfigEntry<bool> ShowProtected;
+    
     public override void Load()
     {
         // Plugin startup logic
         Log = base.Log;
 
         ShowHidden = Config.Bind("General", "ShowHidden", false, "Whether to show hidden Configs");
+        ShowProtected = Config.Bind("General", "ShowProtected", false, "Whether to show protected Configs");
 
         HarmonyInstance.PatchAll();
 

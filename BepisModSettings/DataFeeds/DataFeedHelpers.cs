@@ -15,14 +15,14 @@ namespace BepisModSettings.DataFeeds;
 // Edited Helper code is from - https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
 public static class DataFeedHelpers
 {
-    private static SettingsFacetPreset _preset;
+    private static GridContainerScreen _settingsScreen;
 
-    private static SettingsFacetPreset Preset
+    private static GridContainerScreen SettingsScreen
     {
         get
         {
-            _preset = _preset?.FilterWorldElement() ?? Userspace.UserspaceWorld.RootSlot.GetComponentInChildren<SettingsFacetPreset>();
-            return _preset;
+            _settingsScreen = _settingsScreen?.FilterWorldElement() ?? Userspace.UserspaceWorld.RootSlot.GetComponentInChildren<GridContainerScreen>(x => x.Label.Value == "Settings");
+            return _settingsScreen;
         }
     }
 
@@ -32,7 +32,7 @@ public static class DataFeedHelpers
     {
         get
         {
-            _rootCategoryView = _rootCategoryView?.FilterWorldElement() ?? Preset.Slot.GetComponentInChildren<RootCategoryView>();
+            _rootCategoryView = _rootCategoryView?.FilterWorldElement() ?? SettingsScreen.Slot.GetComponentInChildren<RootCategoryView>();
             return _rootCategoryView;
         }
     }
@@ -59,22 +59,23 @@ public static class DataFeedHelpers
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
         valueField.InitSetupValue(field => field.SyncWithConfigKey(configKey));
 
-        if (configKey.SettingType.IsTypeInjectable())
+        if (configKey.SettingType.IsTypeInjectable() && SettingsScreen?.Slot != null)
         {
-            Preset.Slot.RunSynchronously(() => InjectNewTemplateType(configKey.SettingType));
+            SettingsScreen.Slot.RunSynchronously(() => InjectNewTemplateType(configKey.SettingType));
         }
 
         return valueField;
     }
+
     public static DataFeedValueField<string> GenerateProxyField(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
     {
         DataFeedValueField<string> valueField = new DataFeedValueField<string>();
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
         valueField.InitSetupValue(field => field.SyncProxyWithConfigKey(configKey));
 
-        if (TomlTypeConverter.CanConvert(configKey.SettingType))
+        if (TomlTypeConverter.CanConvert(configKey.SettingType) && SettingsScreen?.Slot != null)
         {
-            Preset.Slot.RunSynchronously(() => InjectNewTemplateType(typeof(string)));
+            SettingsScreen.Slot.RunSynchronously(() => InjectNewTemplateType(typeof(string)));
         }
 
         return valueField;
@@ -141,6 +142,7 @@ public static class DataFeedHelpers
             field.World.RunSynchronously(() => field.Value = (T)(e.ChangedSetting.BoxedValue ?? default(T)!));
         }
     }
+
     private static void SyncProxyWithConfigKey(this IField<string> field, ConfigEntryBase configKey)
     {
         field.Value = TomlTypeConverter.ConvertToString(configKey.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType);
@@ -155,9 +157,12 @@ public static class DataFeedHelpers
             {
                 configKey.BoxedValue = TomlTypeConverter.ConvertToValue(field.Value, configKey.SettingType);
             }
-            catch { return; }
-            field.World.RunSynchronously(() => { field.Value = TomlTypeConverter.ConvertToString(configKey.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType); });
+            catch
+            {
+                return;
+            }
 
+            field.World.RunSynchronously(() => { field.Value = TomlTypeConverter.ConvertToString(configKey.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType); });
         }
 
         void KeyChanged(object sender, SettingChangedEventArgs e)
@@ -170,6 +175,7 @@ public static class DataFeedHelpers
             field.World.RunSynchronously(() => field.Value = valAsStr);
         }
     }
+
     private static DataFeedItem GenerateEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
             where T : unmanaged, Enum
     {
