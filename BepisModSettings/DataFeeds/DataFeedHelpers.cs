@@ -66,6 +66,19 @@ public static class DataFeedHelpers
 
         return valueField;
     }
+    public static DataFeedValueField<string> GenerateProxyField(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
+    {
+        DataFeedValueField<string> valueField = new DataFeedValueField<string>();
+        valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
+        valueField.InitSetupValue(field => field.SyncProxyWithConfigKey(configKey));
+
+        if (TomlTypeConverter.CanConvert(configKey.SettingType))
+        {
+            Preset.Slot.RunSynchronously(() => InjectNewTemplateType(typeof(string)));
+        }
+
+        return valueField;
+    }
 
     private static async IAsyncEnumerable<DataFeedItem> GenerateNullableEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
             where T : unmanaged, Enum
@@ -128,7 +141,30 @@ public static class DataFeedHelpers
             field.World.RunSynchronously(() => field.Value = (T)(e.ChangedSetting.BoxedValue ?? default(T)!));
         }
     }
+    private static void SyncProxyWithConfigKey(this IField<string> field, ConfigEntryBase configKey)
+    {
+        field.Value = TomlTypeConverter.ConvertToString(configKey.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType);
 
+        field.SetupChangedHandlers(FieldChanged, configKey, KeyChanged);
+
+        return;
+
+        void FieldChanged(IChangeable _)
+        {
+            configKey.BoxedValue = TomlTypeConverter.ConvertToValue(field.Value, configKey.SettingType);
+            field.World.RunSynchronously(() => { field.Value = TomlTypeConverter.ConvertToString(configKey.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType); });
+        }
+
+        void KeyChanged(object sender, SettingChangedEventArgs e)
+        {
+            if (e.ChangedSetting != configKey) return;
+            var valAsStr = TomlTypeConverter.ConvertToString(e.ChangedSetting.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType);
+            if (Equals(field.Value, valAsStr))
+                return;
+
+            field.World.RunSynchronously(() => field.Value = valAsStr);
+        }
+    }
     private static DataFeedItem GenerateEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, ConfigEntryBase configKey)
             where T : unmanaged, Enum
     {
@@ -264,7 +300,7 @@ public static class DataFeedHelpers
         }
     }
 
-    private static bool IsTypeInjectable(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
+    internal static bool IsTypeInjectable(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
 
     private static void InjectNewTemplateType(Type typeToInject)
     {
