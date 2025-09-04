@@ -286,6 +286,17 @@ public static class BepisPluginPage
         yield return group;
         string[] groupKeys = [groupId];
 
+        DataFeedAction loadAct = new DataFeedAction();
+        loadAct.InitBase("LoadConfig", path, groupKeys, "Settings.BepInEx.Plugins.LoadConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.LoadConfig.Description".AsLocaleKey());
+        loadAct.InitAction(syncDelegate =>
+        {
+            Button btn = syncDelegate.Slot.GetComponent<Button>();
+            if (btn == null) return;
+        
+            btn.LocalPressed += (_, _) => LoadConfigs(metaData.ID);
+        });
+        yield return loadAct;
+
         DataFeedAction saveAct = new DataFeedAction();
         saveAct.InitBase("SaveConfig", path, groupKeys, "Settings.BepInEx.Plugins.SaveConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.SaveConfig.Description".AsLocaleKey());
         saveAct.InitAction(syncDelegate =>
@@ -336,6 +347,18 @@ public static class BepisPluginPage
         await Task.CompletedTask;
 
         yield return item;
+    }
+    private static void LoadConfigs(string pluginId)
+    {
+        Plugin.Log.LogDebug($"Loading Configs for {pluginId}");
+        if (pluginId == "BepInEx.Core")
+        {
+            ConfigFile.CoreConfig.Reload();
+        }
+        else if (NetChainloader.Instance.Plugins.TryGetValue(pluginId, out var pluginInfo) && pluginInfo.Instance is BasePlugin plugin)
+        {
+            plugin.Config?.Reload();
+        }
     }
 
     private static void SaveConfigs(string pluginId)
