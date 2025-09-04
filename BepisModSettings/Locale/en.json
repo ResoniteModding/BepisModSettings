@@ -28,6 +28,8 @@
 	"Settings.BepInEx.Plugins.Error": "An Error has occurred",
 	
 	"Settings.BepInEx.Plugins.Actions": "Actions",
+	"Settings.BepInEx.Plugins.LoadConfig": "Load all Configs",
+	"Settings.BepInEx.Plugins.LoadConfig.Description": "Load the currently selected Plugin's Configs from disk",
 	"Settings.BepInEx.Plugins.SaveConfig": "Save all Configs",
 	"Settings.BepInEx.Plugins.SaveConfig.Description": "Save the currently selected Plugin's Configs",
 	"Settings.BepInEx.Plugins.ResetConfig": "Reset all Configs",
