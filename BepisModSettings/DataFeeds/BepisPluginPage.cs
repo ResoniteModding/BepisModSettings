@@ -259,7 +259,14 @@ public static class BepisPluginPage
 
                     try
                     {
-                        valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config]);
+                        if (!config.SettingType.IsTypeInjectable() && TomlTypeConverter.CanConvert(config.SettingType))
+                        {
+                            valueItem = DataFeedHelpers.GenerateProxyField(key, path, groupingKeys, config);
+                        }
+                        else
+                        {
+                            valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config]);
+                        }
                     }
                     catch (Exception e)
                     {
