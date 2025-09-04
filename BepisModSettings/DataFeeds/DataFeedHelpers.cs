@@ -151,8 +151,13 @@ public static class DataFeedHelpers
 
         void FieldChanged(IChangeable _)
         {
-            configKey.BoxedValue = TomlTypeConverter.ConvertToValue(field.Value, configKey.SettingType);
+            try
+            {
+                configKey.BoxedValue = TomlTypeConverter.ConvertToValue(field.Value, configKey.SettingType);
+            }
+            catch { return; }
             field.World.RunSynchronously(() => { field.Value = TomlTypeConverter.ConvertToString(configKey.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType); });
+
         }
 
         void KeyChanged(object sender, SettingChangedEventArgs e)
