@@ -35,6 +35,8 @@
 	"Settings.BepInEx.Plugins.ResetConfig": "Reset all Configs",
 	"Settings.BepInEx.Plugins.ResetConfig.Description": "Reset all categories from the currently selected Plugin's Configs",
 	"Settings.BepInEx.Plugins.ResetConfig.Confirm": "Are you sure?",
+	"Settings.BepInEx.Plugins.Reload": "Reload Plugin",
+	"Settings.BepInEx.Plugins.Reload.Description": "Plugin has Unload() implemented, Button will Unload() then Load() it",
     
 	"Settings.BepInEx.Plugins.Metadata": "Metadata",
 	"Settings.BepInEx.Plugins.Guid": "Mod ID",

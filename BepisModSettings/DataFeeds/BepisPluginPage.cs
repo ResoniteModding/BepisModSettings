@@ -28,6 +28,7 @@ public static class BepisPluginPage
 
         ConfigFile configFile;
         ModMeta metadata;
+        BasePlugin instance = null;
 
         if (pluginId == "BepInEx.Core.Config")
         {
@@ -39,6 +40,7 @@ public static class BepisPluginPage
             PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
             if (pluginInfo?.Instance is not BasePlugin plugin) yield break;
 
+            instance = plugin;
             BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin);
             ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
 
@@ -66,6 +68,10 @@ public static class BepisPluginPage
             {
                 yield return item;
             }
+        }
+        await foreach (var action in EnumerateActions(configFile, metadata, path, instance))
+        {
+            yield return action;
         }
 
         // Metadata
@@ -96,7 +102,7 @@ public static class BepisPluginPage
         if (!string.IsNullOrWhiteSpace(metadata.Link) && Uri.TryCreate(metadata.Link, UriKind.Absolute, out var uri))
         {
             var modHyperlink = new DataFeedAction();
-            modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey());
+            modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey(), uri.ToString());
             modHyperlink.InitAction(syncDelegate =>
             {
                 var slot = syncDelegate?.Slot;
@@ -279,67 +285,88 @@ public static class BepisPluginPage
                 }
             }
         }
+    }
+    private static async IAsyncEnumerable<DataFeedItem> EnumerateActions(ConfigFile configFile, ModMeta metaData, IReadOnlyList<string> path, BasePlugin instance)
+    {
+        var hasConfigs = configFile.Count > 0;
+        var canReload = CanReloadPlugin(instance?.GetType());
+        if (!(hasConfigs || canReload)) yield break;
 
         const string groupId = "ActionsGroup";
         DataFeedGroup group = new DataFeedGroup();
         group.InitBase(groupId, path, null, "Settings.BepInEx.Plugins.Actions".AsLocaleKey());
         yield return group;
         string[] groupKeys = [groupId];
-
-        DataFeedAction loadAct = new DataFeedAction();
-        loadAct.InitBase("LoadConfig", path, groupKeys, "Settings.BepInEx.Plugins.LoadConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.LoadConfig.Description".AsLocaleKey());
-        loadAct.InitAction(syncDelegate =>
+        if (hasConfigs)
         {
-            Button btn = syncDelegate.Slot.GetComponent<Button>();
-            if (btn == null) return;
-        
-            btn.LocalPressed += (_, _) => LoadConfigs(metaData.ID);
-        });
-        yield return loadAct;
-
-        DataFeedAction saveAct = new DataFeedAction();
-        saveAct.InitBase("SaveConfig", path, groupKeys, "Settings.BepInEx.Plugins.SaveConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.SaveConfig.Description".AsLocaleKey());
-        saveAct.InitAction(syncDelegate =>
-        {
-            Button btn = syncDelegate.Slot.GetComponent<Button>();
-            if (btn == null) return;
-
-            btn.LocalPressed += (_, _) => SaveConfigs(metaData.ID);
-        });
-        yield return saveAct;
-
-        DataFeedAction resetAct = new DataFeedAction();
-        resetAct.InitBase("ResetConfig", path, groupKeys, "Settings.BepInEx.Plugins.ResetConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.ResetConfig.Description".AsLocaleKey());
-        resetAct.InitAction(syncDelegate =>
-        {
-            Button btn = syncDelegate.Slot?.GetComponent<Button>();
-            if (btn == null) return;
-
-            ValueMultiDriver<bool> valueDriver = btn.Slot.GetComponent<ValueMultiDriver<bool>>();
-            if (valueDriver != null && valueDriver.Drives.Count > 0)
+            DataFeedAction loadAct = new DataFeedAction();
+            loadAct.InitBase("LoadConfig", path, groupKeys, "Settings.BepInEx.Plugins.LoadConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.LoadConfig.Description".AsLocaleKey());
+            loadAct.InitAction(syncDelegate =>
             {
-                SetColor(0, new colorX(0.36f, 0.2f, 0.23f));
-                SetColor(1, new colorX(1f, 0.46f, 0.46f));
-                SetColor(3, new colorX(0.88f, 0.88f, 0.88f));
-            }
+                Button btn = syncDelegate.Slot.GetComponent<Button>();
+                if (btn == null) return;
 
-            btn.LocalPressed += (b, _) => ResetConfigs(b, metaData.ID, valueDriver);
+                btn.LocalPressed += (_, _) => LoadConfigs(metaData.ID);
+            });
+            yield return loadAct;
 
-            return;
-
-            void SetColor(int index, colorX color)
+            DataFeedAction saveAct = new DataFeedAction();
+            saveAct.InitBase("SaveConfig", path, groupKeys, "Settings.BepInEx.Plugins.SaveConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.SaveConfig.Description".AsLocaleKey());
+            saveAct.InitAction(syncDelegate =>
             {
-                if (index >= valueDriver.Drives.Count) return;
+                Button btn = syncDelegate.Slot.GetComponent<Button>();
+                if (btn == null) return;
 
-                FieldDrive<bool> drive = valueDriver.Drives[index];
-                BooleanValueDriver<colorX> colorDriver = btn.Slot.GetComponent<BooleanValueDriver<colorX>>(x => x.State == drive.Target);
-                if (colorDriver != null)
+                btn.LocalPressed += (_, _) => SaveConfigs(metaData.ID);
+            });
+            yield return saveAct;
+
+            DataFeedAction resetAct = new DataFeedAction();
+            resetAct.InitBase("ResetConfig", path, groupKeys, "Settings.BepInEx.Plugins.ResetConfig".AsLocaleKey(), "Settings.BepInEx.Plugins.ResetConfig.Description".AsLocaleKey());
+            resetAct.InitAction(syncDelegate =>
+            {
+                Button btn = syncDelegate.Slot?.GetComponent<Button>();
+                if (btn == null) return;
+
+                ValueMultiDriver<bool> valueDriver = btn.Slot.GetComponent<ValueMultiDriver<bool>>();
+                if (valueDriver != null && valueDriver.Drives.Count > 0)
                 {
-                    colorDriver.TrueValue.Value = color;
+                    SetColor(0, new colorX(0.36f, 0.2f, 0.23f));
+                    SetColor(1, new colorX(1f, 0.46f, 0.46f));
+                    SetColor(3, new colorX(0.88f, 0.88f, 0.88f));
                 }
-            }
-        });
-        yield return resetAct;
+
+                btn.LocalPressed += (b, _) => ResetConfigs(b, metaData.ID, valueDriver);
+
+                return;
+
+                void SetColor(int index, colorX color)
+                {
+                    if (index >= valueDriver.Drives.Count) return;
+
+                    FieldDrive<bool> drive = valueDriver.Drives[index];
+                    BooleanValueDriver<colorX> colorDriver = btn.Slot.GetComponent<BooleanValueDriver<colorX>>(x => x.State == drive.Target);
+                    if (colorDriver != null)
+                    {
+                        colorDriver.TrueValue.Value = color;
+                    }
+                }
+            });
+            yield return resetAct;
+        }
+        if (canReload)
+        {
+            DataFeedAction reloadPluginAct = new DataFeedAction();
+            reloadPluginAct.InitBase("ReloadPlugin", path, groupKeys, "Settings.BepInEx.Plugins.Reload".AsLocaleKey(), "Settings.BepInEx.Plugins.Reload.Description".AsLocaleKey());
+            reloadPluginAct.InitAction(syncDelegate =>
+            {
+                Button btn = syncDelegate.Slot.GetComponent<Button>();
+                if (btn == null) return;
+
+                btn.LocalPressed += (_, _) => ReloadPlugin(metaData.ID, instance);
+            });
+            yield return reloadPluginAct;
+        }
     }
 
     private static async IAsyncEnumerable<DataFeedItem> GetDummyAsync(DataFeedItem item)
@@ -475,5 +502,35 @@ public static class BepisPluginPage
         {
             Plugin.Log.LogError(e);
         }
+    }
+
+    private static void ReloadPlugin(string pluginId, BasePlugin instance)
+    {
+        Plugin.Log.LogDebug($"Reloading Plugin {pluginId}");
+        try
+        {
+            instance.Unload();
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error unloading Plugin {pluginId}\n{e}");
+            return;
+        }
+        try
+        {
+            instance.Load();
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error Loading Plugin {pluginId}\n{e}");
+        }
+    }
+
+    private static bool CanReloadPlugin(Type pluginType)
+    {
+        if (pluginType == null) return false;
+        var method = pluginType.GetMethods(BindingFlags.Instance | BindingFlags.Public)
+            .FirstOrDefault(m => m.Name == nameof(BasePlugin.Unload) && m.ReturnType == typeof(bool) && m.GetParameters().Length == 0);
+        return method != null && method.DeclaringType.IsAssignableTo(pluginType);
     }
 }
