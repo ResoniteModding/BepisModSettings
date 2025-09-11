@@ -57,7 +57,20 @@ public static class DataFeedHelpers
     {
         DataFeedValueField<T> valueField = new DataFeedValueField<T>();
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, configKey.Definition.Key, configKey.Description.Description);
-        valueField.InitSetupValue(field => field.SyncWithConfigKey(configKey));
+        valueField.InitSetupValue(field =>
+        {
+            if (configKey.Description.Tags.Contains("Protected") && !Plugin.ShowProtected.Value)
+            {
+                TextField textField = field.FindNearestParent<Slot>().FindParent(x => x.Name == "DataFeedValueField<string>", 5).GetComponentInChildren<TextField>();
+                textField.Text.ParseRichText.Value = false;
+                textField.Editor.Target.Undo.Value = false;
+                textField.Text.MaskPattern.Value = "*";
+            }
+            
+            field.SyncWithConfigKey(configKey);
+        });
+        
+        
 
         if (configKey.SettingType.IsTypeInjectable() && SettingsScreen?.Slot != null)
         {

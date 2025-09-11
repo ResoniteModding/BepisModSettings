@@ -34,7 +34,7 @@ public class Plugin : BasePlugin
         // Plugin startup logic
         Log = base.Log;
 
-        ShowHidden = Config.Bind("General", "ShowHidden", false, "Whether to show hidden Configs");
+        ShowHidden = Config.Bind("General", "ShowHidden", false, "Whether to show hidden Configs - Not Implemented");
         ShowProtected = Config.Bind("General", "ShowProtected", false, "Whether to show protected Configs");
 
         HarmonyInstance.PatchAll();
