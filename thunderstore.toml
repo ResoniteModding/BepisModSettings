@@ -27,6 +27,10 @@ target = "plugins/BepisModSettings/"
 source = "./BepisModSettings/bin/Release/BepisModSettings.pdb"
 target = "plugins/BepisModSettings/"
 
+[[build.copy]]
+source = "./BepisModSettings/Locale"
+target = "plugins/BepisModSettings/Locale"
+
 # Uncomment the following lines to include CHANGELOG file in your mod package. https://wiki.thunderstore.io/mods/updating-a-package#changelog
 # [[build.copy]]
 # source = "./CHANGELOG.md"
