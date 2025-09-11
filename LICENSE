@@ -672,3 +672,16 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+----------------------------------------------------
+Attribution and Relicensing Notes:
+
+Portions of this project are derived from:
+MonkeyLoader.GamePacks.Resonite
+(https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite),
+originally licensed under the GNU Lesser General Public License v3.0.
+
+These portions have been relicensed to the GNU General Public License v3.0
+as permitted by LGPL v3.0.
+
+Modifications: Edited by NepuShiro and ResoniteModding contributors.

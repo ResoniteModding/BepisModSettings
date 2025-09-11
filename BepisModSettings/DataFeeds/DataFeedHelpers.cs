@@ -1,4 +1,15 @@
-﻿using System;
+﻿/*
+* This file is based on code from:
+* https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
+*
+* Original code licensed under the GNU Lesser General Public License v3.0.
+* In accordance with the LGPL v3.0, this file is redistributed under
+* the terms of the GNU General Public License v3.0, as permitted by LGPL v3.0.
+*
+* Modifications: Edited by NepuShiro and ResoniteModding contributors.
+*/
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -12,7 +23,6 @@ using HarmonyLib;
 
 namespace BepisModSettings.DataFeeds;
 
-// Edited Helper code is from - https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
 public static class DataFeedHelpers
 {
     private static GridContainerScreen _settingsScreen;
