@@ -31,8 +31,8 @@ jobs:
             -   name: Build
                 run: |
                     dotnet build -c Release
-                    dotnet pack -c Release --no-build -o ./bin/dist
-                    # Copy the built DLL to dist folder
+                    # Create dist folder and copy the built DLL for release
+                    mkdir -p ./bin/dist/
                     cp ./BepisModSettings/bin/Release/BepisModSettings.dll ./bin/dist/
             -   name: Create Thunderstore Package
                 run: |
@@ -43,6 +43,5 @@ jobs:
                 with:
                     name: BepisModSettings-${{ steps.info.outputs.version }}-${{ steps.info.outputs.sha_short }}
                     path: |
-                        ./bin/dist/*.nupkg
                         ./bin/dist/*.dll
                         ./build/*.zip

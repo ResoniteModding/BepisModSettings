@@ -18,6 +18,8 @@ on:
 jobs:
     release:
         runs-on: ubuntu-latest
+        permissions:
+            contents: write
         steps:
             -   uses: actions/checkout@v3
                 with:
@@ -39,12 +41,13 @@ jobs:
             -   name: Build
                 run: |
                     dotnet build -c Release
-                    # Copy the built DLL to dist folder for release
+                    # Create dist folder and copy the built DLL for release
+                    mkdir -p ./bin/dist/
                     cp ./BepisModSettings/bin/Release/BepisModSettings.dll ./bin/dist/
             -   name: Create Thunderstore Package
                 run: |
                     dotnet tool restore
-                    dotnet tcli build
+                    dotnet tcli build --package-version ${{ steps.info.outputs.version }}
             -   name: Create Git Tag (if needed)
                 if: ${{ github.event_name == 'workflow_dispatch' }}
                 run: |
