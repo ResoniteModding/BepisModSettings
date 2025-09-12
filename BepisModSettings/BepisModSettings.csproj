@@ -1,14 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>0.1.0</Version>
-        <Authors>NepuShiro, Art0007i</Authors>
+        <Version>1.0.1</Version>
+        <Authors>ResoniteModding</Authors>
         <TargetFramework>net9.0</TargetFramework>
         <Product>Bepis Mod Settings</Product>
         <RepositoryUrl>https://github.com/ResoniteModding/$(AssemblyName)</RepositoryUrl>
         <PackageId>ResoniteModding.$(AssemblyName)</PackageId>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <CopyToPlugins>true</CopyToPlugins>
+        <CopyToPlugins>false</CopyToPlugins>
+        <ThunderstorePackable>true</ThunderstorePackable>
         <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
         <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
         <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
@@ -20,10 +21,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="BepInEx.NET.CoreCLR" Version="6.0.0-be.*" IncludeAssets="compile"/>
         <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*"/>
         <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.8.*"/>
         <PackageReference Include="ResoniteModding.BepisLocaleLoader" Version="1.*"/>
+        <PackageReference Include="ResoniteModding.BepisResoniteWrapper" Version="1.*" />
     </ItemGroup>
 
     <!-- NuGet fallback stripped game references -->
