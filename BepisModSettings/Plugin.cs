@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using BepInEx.Configuration;
 using BepInEx.NET.Common;
 using BepisModSettings.DataFeeds;
+using BepisResoniteWrapper;
 
 namespace BepisModSettings;
 
@@ -28,7 +29,7 @@ public class Plugin : BasePlugin
 
     internal static ConfigEntry<bool> ShowHidden;
     internal static ConfigEntry<bool> ShowProtected;
-    
+
     public override void Load()
     {
         // Plugin startup logic
@@ -39,30 +40,21 @@ public class Plugin : BasePlugin
 
         HarmonyInstance.PatchAll();
 
-        // TODO: Replace this with an event when BepInExResoniteShim updates.
-        Task.Run(async () =>
+        ResoniteHooks.OnEngineReady += () =>
         {
-            while (Engine.Current == null)
+            FieldInfo categoryField = AccessTools.Field(typeof(Settings), "_categoryInfos");
+            if (categoryField != null && categoryField.GetValue(null) is Dictionary<string, SettingCategoryInfo> categoryInfos)
             {
-                await Task.Delay(10);
+                SettingCategoryInfo bepInExCategory = new SettingCategoryInfo(new Uri("https://avatars.githubusercontent.com/u/39589027?s=200&v=4.png"), 99L);
+                bepInExCategory.InitKey("BepInEx");
+
+                categoryInfos.Add(bepInExCategory.Key, bepInExCategory);
             }
-
-            Engine.Current.OnReady += () =>
+            else
             {
-                FieldInfo categoryField = AccessTools.Field(typeof(Settings), "_categoryInfos");
-                if (categoryField != null && categoryField.GetValue(null) is Dictionary<string, SettingCategoryInfo> categoryInfos)
-                {
-                    SettingCategoryInfo bepInExCategory = new SettingCategoryInfo(new Uri("https://avatars.githubusercontent.com/u/39589027?s=200&v=4.png"), 99L);
-                    bepInExCategory.InitKey("BepInEx");
-
-                    categoryInfos.Add(bepInExCategory.Key, bepInExCategory);
-                }
-                else
-                {
-                    Log.LogError("Failed to find _categoryInfos field in Settings.");
-                }
-            };
-        });
+                Log.LogError("Failed to find _categoryInfos field in Settings.");
+            }
+        };
 
         Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
     }
