@@ -21,9 +21,9 @@ public static class BepisNestedCategoryPage
         }
         else
         {
-            DataFeedLabel noConfigs = new DataFeedLabel();
-            noConfigs.InitBase("InvalidCategory", path, null, "Settings.BepInEx.Plugins.Error".AsLocaleKey());
-            yield return noConfigs;
+            DataFeedLabel invalidCategory = new DataFeedLabel();
+            invalidCategory.InitBase("InvalidCategory", path, null, "Settings.BepInEx.Plugins.Error".AsLocaleKey());
+            yield return invalidCategory;
         }
     }
 }

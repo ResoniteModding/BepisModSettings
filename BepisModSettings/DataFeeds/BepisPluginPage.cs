@@ -9,6 +9,7 @@ using BepInEx.Configuration;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using BepisLocaleLoader;
+using BepisModSettings.ConfigAttributes;
 using Elements.Core;
 using FrooxEngine;
 using FrooxEngine.UIX;
@@ -73,7 +74,7 @@ public static class BepisPluginPage
         modGroup.InitBase("Metadata", path, null, "Settings.BepInEx.Plugins.Metadata".AsLocaleKey());
         yield return modGroup;
 
-        string[] metadataGroup = new[] { "Metadata" };
+        string[] metadataGroup = ["Metadata"];
 
         DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
         idIndicator.InitBase("Id", path, metadataGroup, "Settings.BepInEx.Plugins.Guid".AsLocaleKey());
@@ -119,6 +120,8 @@ public static class BepisPluginPage
             List<string> added = new List<string>();
             foreach (ConfigEntryBase config in configFile.Values)
             {
+                if (!Plugin.ShowHidden.Value && config.Description.Tags.Any(x => x is HiddenConfig)) continue;
+                
                 Type valueType = config.SettingType;
 
                 string section = config.Definition.Section;
@@ -147,22 +150,24 @@ public static class BepisPluginPage
                 string initKey = section + "." + config.Definition.Key;
                 string key = added.Contains(initKey) ? initKey + added.Count : initKey;
 
-                // TODO: Figure out how to actually Localize config keys.
-                // TODO: Add Key for SubCategories
+                // TODO: Somehow support subcategories
+                LocaleString nameKey = config.Definition.Key;
+                LocaleString descKey = config.Description.Description;
+                LocaleString defaultKey = $"{config.Definition.Key} : {valueType}";
+                LocaleString valueKey = $"{config.Definition.Key} : {config.BoxedValue}";
 
-                string defaultKey = $"{config.Definition.Key} : {valueType}";       // "Settings.BepInEx.Plugins.Configs.Default".AsLocaleKey(("name", config.Definition.Key), ("type", valueType));
-                string valueKey = $"{config.Definition.Key} : {config.BoxedValue}"; // "Settings.BepInEx.Plugins.Configs.Value".AsLocaleKey(("name", config.Definition.Key), ("value", config.BoxedValue));
-                string nameKey = config.Definition.Key;                             // "Settings.BepInEx.Plugins.Configs.Name".AsLocaleKey(("name", config.Definition.Key));
-                string descKey = config.Description.Description;                    // "Settings.BepInEx.Plugins.Configs.Description".AsLocaleKey(("description", config.Description.Description));
+                bool hasLocale = LocaleLoader.PluginsWithLocales.Any(x => x.Metadata.GUID == metaData.ID);
+                if (hasLocale && config.Description.Tags.FirstOrDefault(x => x is ConfigLocale) is ConfigLocale localeString)
+                {
+                    nameKey = localeString.Name;
+                    descKey = localeString.Description;
 
-                // if (SettingsLocaleHelper.PluginsWithLocales.Any(x => x.Metadata.GUID == metaData.ID))
-                // {
-                //     nameKey = config.Definition.Key.AsLocaleKey();
-                //     descKey = config.Description.Description.AsLocaleKey();
-                //     
-                //     defaultKey = $"Settings.{metaData.ID}.Configs.Default".AsLocaleKey(("name", nameKey.content), ("type", valueType));
-                //     valueKey = $"Settings.{metaData.ID}.Configs.Value".AsLocaleKey(("name", nameKey.content), ("value", config.BoxedValue));
-                // }
+                    string formatted = localeString.Name.content.GetFormattedLocaleString();
+                    defaultKey = $"{formatted} : {valueType}";
+                    valueKey = $"{formatted} : {config.BoxedValue}";
+                }
+                
+                InternalLocale internalLocale = new InternalLocale(nameKey, descKey);
 
                 added.Add(key);
 
@@ -172,7 +177,7 @@ public static class BepisPluginPage
                 {
                     DataFeedItem dummyField = null;
 
-                    if (config.Description.Tags.Contains("Action") && config.Description.Tags.FirstOrDefault(x => x is Delegate) is Delegate del)
+                    if (config.Description.Tags.FirstOrDefault(x => x is ActionConfig) is ActionConfig action)
                     {
                         DataFeedAction actionField = new DataFeedAction();
                         actionField.InitBase(key, path, groupingKeys, nameKey, descKey);
@@ -181,23 +186,37 @@ public static class BepisPluginPage
                             Button btn = syncDelegate.Slot.GetComponent<Button>();
                             if (btn == null) return;
 
-                            btn.LocalPressed += (_, _) => del.DynamicInvoke();
+                            btn.LocalPressed += (_, _) => action.Invoke();
                         });
 
                         dummyField = actionField;
                     }
 
-                    if (dummyField == null)
+                    bool customUi = false;
+                    if (config.Description.Tags.FirstOrDefault(x => x is CustomDataFeed) is CustomDataFeed customDataFeed)
+                    {
+                        customUi = true;
+                        IAsyncEnumerable<DataFeedItem> datafeed = customDataFeed.Build(path, groupingKeys);
+                        await foreach (DataFeedItem item in datafeed)
+                        {
+                            yield return item;
+                        }
+                    }
+
+                    if (dummyField == null && !customUi)
                     {
                         dummyField = new DataFeedValueField<dummy>();
                         dummyField.InitBase(key, path, groupingKeys, nameKey, descKey);
                     }
-
-                    yield return dummyField;
+                    
+                    if (!customUi)
+                    {
+                        yield return dummyField;
+                    }
                 }
                 else if (valueType == typeof(bool))
                 {
-                    yield return DataFeedHelpers.GenerateToggle(key, path, groupingKeys, config);
+                    yield return DataFeedHelpers.GenerateToggle(key, path, groupingKeys, internalLocale, config);
                 }
                 else if (valueType.IsEnum)
                 {
@@ -215,7 +234,7 @@ public static class BepisPluginPage
                         }
                         else
                         {
-                            enumItem = (DataFeedItem)DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config]);
+                            enumItem = (DataFeedItem)DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
                         }
                     }
                     catch (Exception e)
@@ -236,7 +255,7 @@ public static class BepisPluginPage
 
                         try
                         {
-                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, config]);
+                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
                         }
                         catch (Exception e)
                         {
@@ -261,11 +280,11 @@ public static class BepisPluginPage
                     {
                         if (!config.SettingType.IsTypeInjectable() && TomlTypeConverter.CanConvert(config.SettingType))
                         {
-                            valueItem = DataFeedHelpers.GenerateProxyField(key, path, groupingKeys, config);
+                            valueItem = DataFeedHelpers.GenerateProxyField(key, path, groupingKeys, internalLocale, config);
                         }
                         else
                         {
-                            valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, config]);
+                            valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
                         }
                     }
                     catch (Exception e)
@@ -292,7 +311,7 @@ public static class BepisPluginPage
         {
             Button btn = syncDelegate.Slot.GetComponent<Button>();
             if (btn == null) return;
-        
+
             btn.LocalPressed += (_, _) => LoadConfigs(metaData.ID);
         });
         yield return loadAct;
@@ -348,6 +367,7 @@ public static class BepisPluginPage
 
         yield return item;
     }
+
     private static void LoadConfigs(string pluginId)
     {
         Plugin.Log.LogDebug($"Loading Configs for {pluginId}");

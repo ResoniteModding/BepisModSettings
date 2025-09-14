@@ -12,6 +12,8 @@ using System.Reflection;
 using System.Threading.Tasks;
 using BepInEx.Configuration;
 using BepInEx.NET.Common;
+using BepisLocaleLoader;
+using BepisModSettings.ConfigAttributes;
 using BepisModSettings.DataFeeds;
 using BepisResoniteWrapper;
 
@@ -30,13 +32,23 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<bool> ShowHidden;
     internal static ConfigEntry<bool> ShowProtected;
 
+    internal static ConfigEntry<dummy> TestAction;
+    internal static ConfigEntry<string> TestProtected;
+    internal static ConfigEntry<string> TestHidden;
+    internal static ConfigEntry<dummy> TestCustomDataFeed;
+
     public override void Load()
     {
         // Plugin startup logic
         Log = base.Log;
 
-        ShowHidden = Config.Bind("General", "ShowHidden", false, "Whether to show hidden Configs - Not Implemented");
+        ShowHidden = Config.Bind("General", "ShowHidden", false, new ConfigDescription("Whether to show hidden Configs", null, new ConfigLocale("Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden", "Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden.Description")));
         ShowProtected = Config.Bind("General", "ShowProtected", false, "Whether to show protected Configs");
+
+        TestAction = Config.Bind("Tests", "TestAction", default(dummy), new ConfigDescription("TestAction", null, new ActionConfig(() => Log.LogError("OneOfThem"))));
+        TestProtected = Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));
+        TestHidden = Config.Bind("Tests", "TestHidden", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestHidden", null, new HiddenConfig()));
+        TestCustomDataFeed = Config.Bind("Tests", "TestCustomDataFeed", default(dummy), new ConfigDescription("TestCustomDataFeed", null, new CustomDataFeed(CustomDateFeedEnumerate)));
 
         HarmonyInstance.PatchAll();
 
@@ -93,5 +105,36 @@ public class Plugin : BasePlugin
 
             return false;
         }
+    }
+
+    private static async IAsyncEnumerable<DataFeedItem> CustomDateFeedEnumerate(IReadOnlyList<string> path, IReadOnlyList<string> groupingKeys)
+    {
+        await Task.CompletedTask;
+
+        DataFeedGroup group = new DataFeedGroup();
+        group.InitBase("Test", path, groupingKeys, "Test");
+        yield return group;
+
+        string[] groupingKeysArray = groupingKeys.Concat(["Test"]).ToArray();
+
+        DataFeedIndicator<string> indicator = new DataFeedIndicator<string>();
+        indicator.InitBase("Test1", path, groupingKeysArray, "Test1");
+        indicator.InitSetupValue(field => field.Value = "Test1");
+        yield return indicator;
+
+        DataFeedIndicator<string> indicator2 = new DataFeedIndicator<string>();
+        indicator2.InitBase("Test2", path, groupingKeysArray, "Test2");
+        indicator2.InitSetupValue(field => field.Value = "Test2");
+        yield return indicator2;
+
+        DataFeedIndicator<string> indicator3 = new DataFeedIndicator<string>();
+        indicator3.InitBase("Test3", path, groupingKeysArray, "Test3");
+        indicator3.InitSetupValue(field => field.Value = "Test3");
+        yield return indicator3;
+
+        DataFeedIndicator<string> indicator4 = new DataFeedIndicator<string>();
+        indicator4.InitBase("Test4", path, groupingKeysArray, "Test4");
+        indicator4.InitSetupValue(field => field.Value = "Test4");
+        yield return indicator4;
     }
 }
