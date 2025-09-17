@@ -23,7 +23,7 @@ public static class BepisSettingsPage
         pluginsGrid.InitBase("PluginsGrid", path, ["BepInExPlugins"], "Settings.BepInEx.LoadedPlugins".AsLocaleKey());
         yield return pluginsGrid;
 
-        string[] loadedPluginsGroup = new[] { "BepInExPlugins", "PluginsGrid" };
+        string[] loadedPluginsGroup = ["BepInExPlugins", "PluginsGrid"];
 
         if (NetChainloader.Instance.Plugins.Count > 0)
         {
@@ -65,7 +65,7 @@ public static class BepisSettingsPage
         coreGroup.InitBase("BepInExCore", path, null, "Settings.BepInEx.Core".AsLocaleKey());
         yield return coreGroup;
 
-        string[] coreGroupParam = new[] { "BepInExCore" };
+        string[] coreGroupParam = ["BepInExCore"];
 
         DataFeedCategory bepisCategory = new DataFeedCategory();
         bepisCategory.InitBase("BepInEx.Core.Config", path, coreGroupParam, "Settings.BepInEx.Core.Config".AsLocaleKey());
