@@ -66,6 +66,23 @@ public class Plugin : BasePlugin
             {
                 Log.LogError("Failed to find _categoryInfos field in Settings.");
             }
+
+            Engine.Current.OnShutdown += () =>
+            {
+                Plugin.Log.LogInfo("Running shutdown, saving configs...");
+                
+                Plugin.Log.LogDebug("Saving Config for BepInEx.Core");
+                ConfigFile.CoreConfig?.Save();
+
+                if (NetChainloader.Instance.Plugins.Count <= 0) return;
+                NetChainloader.Instance.Plugins.Values.Do(x =>
+                {
+                    if (x.Instance is not BasePlugin plugin) return;
+
+                    Plugin.Log.LogDebug($"Saving Config for {x.Metadata.GUID}");
+                    plugin.Config?.Save();
+                });
+            };
         };
 
         Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
