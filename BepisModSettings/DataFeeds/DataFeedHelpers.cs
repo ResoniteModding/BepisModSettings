@@ -26,24 +26,14 @@ namespace BepisModSettings.DataFeeds;
 
 public static class DataFeedHelpers
 {
-    private static GridContainerScreen _settingsScreen;
-
-    private static GridContainerScreen SettingsScreen
-    {
-        get
-        {
-            _settingsScreen = _settingsScreen?.FilterWorldElement() ?? Userspace.UserspaceWorld.RootSlot.GetComponentInChildren<GridContainerScreen>(x => x.Label.Value == "Settings");
-            return _settingsScreen;
-        }
-    }
+    public static SettingsDataFeed SettingsDataFeed { get; set; }
 
     private static RootCategoryView _rootCategoryView;
-
     private static RootCategoryView RootCategoryView
     {
         get
         {
-            _rootCategoryView = _rootCategoryView?.FilterWorldElement() ?? SettingsScreen.Slot.GetComponentInChildren<RootCategoryView>();
+            _rootCategoryView = _rootCategoryView?.FilterWorldElement() ?? SettingsDataFeed.Slot.GetComponent<RootCategoryView>();
             return _rootCategoryView;
         }
     }
@@ -83,9 +73,9 @@ public static class DataFeedHelpers
         
         
 
-        if (configKey.SettingType.IsTypeInjectable() && SettingsScreen?.Slot != null)
+        if (configKey.SettingType.IsTypeInjectable() && SettingsDataFeed != null)
         {
-            SettingsScreen.Slot.RunSynchronously(() => InjectNewTemplateType(configKey.SettingType));
+            SettingsDataFeed.Slot.RunSynchronously(() => InjectNewTemplateType(configKey.SettingType));
         }
 
         return valueField;
@@ -97,9 +87,9 @@ public static class DataFeedHelpers
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
         valueField.InitSetupValue(field => field.SyncProxyWithConfigKey(configKey));
 
-        if (TomlTypeConverter.CanConvert(configKey.SettingType) && SettingsScreen?.Slot != null)
+        if (TomlTypeConverter.CanConvert(configKey.SettingType) && SettingsDataFeed != null)
         {
-            SettingsScreen.Slot.RunSynchronously(() => InjectNewTemplateType(typeof(string)));
+            SettingsDataFeed.Slot.RunSynchronously(() => InjectNewTemplateType(typeof(string)));
         }
 
         return valueField;
@@ -451,6 +441,179 @@ public static class DataFeedHelpers
         else
         {
             Plugin.Log.LogError("Could not find Templates slot in DoInject!");
+        }
+    }
+    
+    private static bool _isUpdatingSettings;
+
+    public static bool GoUpOneSetting()
+    {
+        try
+        {
+            RootCategoryView rcv = GetRootCategoryView();
+            if (rcv == null)
+            {
+                Plugin.Log.LogWarning("Cannot navigate up: RootCategoryView not found or not in BepInEx settings");
+                return false;
+            }
+
+            if (rcv.Path.Count <= 1)
+            {
+                Plugin.Log.LogInfo("Already at the root category, cannot go up further");
+                return false;
+            }
+
+            string[] newPath = rcv.Path.Take(rcv.Path.Count - 1).ToArray();
+            return SetCategoryPathSafe(rcv, newPath);
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error navigating up one setting: {e}");
+            return false;
+        }
+    }
+
+    public static bool GoToSettingPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            Plugin.Log.LogWarning("Cannot navigate to empty or null path");
+            return false;
+        }
+
+        return GoToSettingPath(new[] { path });
+    }
+
+    public static bool GoToSettingPath(string[] path)
+    {
+        if (path == null || path.Length == 0)
+        {
+            Plugin.Log.LogWarning("Cannot navigate to null or empty path array");
+            return false;
+        }
+
+        try
+        {
+            RootCategoryView rcv = GetRootCategoryView();
+            if (rcv == null)
+            {
+                Plugin.Log.LogWarning($"Cannot navigate to path [{string.Join("/", path)}]: RootCategoryView not found or not in BepInEx settings");
+                return false;
+            }
+
+            return SetCategoryPathSafe(rcv, path);
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error navigating to path [{string.Join("/", path)}]: {e}");
+            return false;
+        }
+    }
+
+    public static bool RefreshSettingsScreen()
+    {
+        if (_isUpdatingSettings)
+        {
+            Plugin.Log.LogInfo("Settings refresh already in progress, skipping");
+            return false;
+        }
+
+        try
+        {
+            _isUpdatingSettings = true;
+
+            RootCategoryView rcv = GetRootCategoryView();
+            if (rcv == null)
+            {
+                Plugin.Log.LogWarning("Cannot refresh settings: RootCategoryView not found or not in BepInEx settings");
+                _isUpdatingSettings = false;
+                return false;
+            }
+
+            // Store the current path
+            string[] currentPath = rcv.Path.ToArray();
+
+            // Navigate to empty path to trigger refresh
+            if (!SetCategoryPathSafe(rcv, new[] { string.Empty }))
+            {
+                Plugin.Log.LogError("Failed to navigate to empty path during refresh");
+                _isUpdatingSettings = false;
+                return false;
+            }
+
+            rcv.RunInUpdates(3, () =>
+            {
+                try
+                {
+                    SetCategoryPathSafe(rcv, currentPath);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Log.LogError($"Error returning to original path after refresh: {e}");
+                }
+                finally
+                {
+                    _isUpdatingSettings = false;
+                }
+            });
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error refreshing settings screen: {e}");
+            _isUpdatingSettings = false;
+            return false;
+        }
+    }
+
+    private static bool SetCategoryPathSafe(RootCategoryView rcv, string[] path)
+    {
+        if (rcv == null || path == null)
+        {
+            Plugin.Log.LogWarning("Cannot set category path: rcv or path is null");
+            return false;
+        }
+
+        try
+        {
+            rcv.SetCategoryPath(path);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Failed to set category path [{string.Join("/", path)}]: {e}");
+            return false;
+        }
+    }
+
+    private static RootCategoryView GetRootCategoryView()
+    {
+        try
+        {
+            RootCategoryView rcv = RootCategoryView;
+            if (rcv == null)
+            {
+                SettingsDataFeed settingsDataFeed = Userspace.UserspaceWorld?.RootSlot?.GetComponentInChildren<SettingsDataFeed>();
+                rcv = settingsDataFeed?.Slot?.GetComponent<RootCategoryView>();
+            }
+
+            if (rcv?.Path == null || rcv.Path.Count == 0)
+            {
+                return null;
+            }
+
+            if (rcv.Path.All(p => p?.Contains("BepInEx", StringComparison.OrdinalIgnoreCase) != true))
+            {
+                return null;
+            }
+
+            return rcv;
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error getting RootCategoryView: {e}");
+            return null;
         }
     }
 }
