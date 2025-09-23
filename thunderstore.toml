@@ -13,7 +13,7 @@ containsNsfwContent = false
 
 [package.dependencies]
 ResoniteModding-BepisLoader = "1.4.1"
-ResoniteModding-BepisLocaleLoader = "1.0.0"
+ResoniteModding-BepisLocaleLoader = "1.1.0"
 ResoniteModding-BepisResoniteWrapper = "1.0.0"
 
 [build]
@@ -33,11 +33,6 @@ target = "plugins/BepisModSettings/"
 source = "./BepisModSettings/Locale"
 target = "plugins/BepisModSettings/Locale"
 
-# Uncomment the following lines to include CHANGELOG file in your mod package. https://wiki.thunderstore.io/mods/updating-a-package#changelog
-# [[build.copy]]
-# source = "./CHANGELOG.md"
-# target = "/"
-
 [[build.copy]]
 source = "./LICENSE"
 target = "/"
@@ -50,4 +45,4 @@ communities = ["resonite"]
 resonite = [
   "dashboard",
   "misc",
-] # TODO: Change this to your mod's categories, see https://thunderstore.io/api/experimental/community/resonite/category/ for a list of available categories
+]
