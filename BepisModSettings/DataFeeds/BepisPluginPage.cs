@@ -63,8 +63,13 @@ public static class BepisPluginPage
             BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin);
             ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
 
+            var assCo = resonitePlugin?.Author ??
+                plugin.GetType().Assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company;
+            var assUrl = resonitePlugin?.Link ??
+                plugin.GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()?.FirstOrDefault(a => a.Key.ToLower().Contains("url"))?.Value;
+
             configFile = plugin.Config;
-            metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pluginId, resonitePlugin?.Author, resonitePlugin?.Link);
+            metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pluginId, assCo, assUrl);
         }
 
         if (string.IsNullOrWhiteSpace(metadata.Name))
@@ -141,7 +146,7 @@ public static class BepisPluginPage
             foreach (ConfigEntryBase config in configFile.Values)
             {
                 if (!Plugin.ShowHidden.Value && config.Description.Tags.Any(x => x is HiddenConfig)) continue;
-                
+
                 Type valueType = config.SettingType;
 
                 string section = config.Definition.Section;
@@ -186,7 +191,7 @@ public static class BepisPluginPage
                     defaultKey = $"{formatted} : {valueType}";
                     valueKey = $"{formatted} : {config.BoxedValue}";
                 }
-                
+
                 InternalLocale internalLocale = new InternalLocale(nameKey, descKey);
 
                 added.Add(key);
@@ -228,7 +233,7 @@ public static class BepisPluginPage
                         dummyField = new DataFeedValueField<dummy>();
                         dummyField.InitBase(key, path, groupingKeys, nameKey, descKey);
                     }
-                    
+
                     if (!customUi)
                     {
                         yield return dummyField;
