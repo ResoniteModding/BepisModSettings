@@ -430,3 +430,5 @@ FodyWeavers.xsd
 # Thunderstore packaging
 dist/
 build/
+
+.idea/
