@@ -26,7 +26,7 @@ namespace BepisModSettings.DataFeeds;
 
 public static class DataFeedHelpers
 {
-    public static SettingsDataFeed SettingsDataFeed { get; set; }
+    internal static SettingsDataFeed SettingsDataFeed { get; set; }
 
     private static RootCategoryView _rootCategoryView;
     private static RootCategoryView RootCategoryView
@@ -512,11 +512,7 @@ public static class DataFeedHelpers
 
     public static bool RefreshSettingsScreen()
     {
-        if (_isUpdatingSettings)
-        {
-            Plugin.Log.LogInfo("Settings refresh already in progress, skipping");
-            return false;
-        }
+        if (_isUpdatingSettings) return false;
 
         try
         {
