@@ -6,7 +6,7 @@ schemaVersion = "0.0.1"
 [package]
 namespace = "ResoniteModding"
 name = "BepisModSettings"
-versionNumber = "1.1.1"
+versionNumber = "1.2.0"
 description = "Lets you edit your mod settings in the settings tab of the dashboard"
 websiteUrl = "https://github.com/ResoniteModding/BepisModSettings"
 containsNsfwContent = false

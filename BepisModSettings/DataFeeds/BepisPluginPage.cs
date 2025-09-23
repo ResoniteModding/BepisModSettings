@@ -20,12 +20,32 @@ namespace BepisModSettings.DataFeeds;
 public static class BepisPluginPage
 {
     internal static readonly Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>> CategoryHandlers = new Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>>();
+    
+    public static event Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> CustomPluginConfigsPages;
 
     internal static async IAsyncEnumerable<DataFeedItem> Enumerate(IReadOnlyList<string> path)
     {
         await Task.CompletedTask;
 
         string pluginId = path[1];
+
+        if (NetChainloader.Instance.Plugins.Values.All(x => x.Metadata.GUID != pluginId) && pluginId != "BepInEx.Core.Config")
+        {
+            if (CustomPluginConfigsPages != null)
+            {
+                foreach (Delegate del in CustomPluginConfigsPages.GetInvocationList())
+                {
+                    if (del is not Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> handler) continue;
+
+                    await foreach (DataFeedItem item in handler(path))
+                    {
+                        yield return item;
+                    }
+                }
+            }
+            
+            yield break;
+        }
 
         ConfigFile configFile;
         ModMeta metadata;
