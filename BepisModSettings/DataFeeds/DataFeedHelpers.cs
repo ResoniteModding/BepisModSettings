@@ -60,12 +60,12 @@ public static class DataFeedHelpers
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
         valueField.InitSetupValue(field =>
         {
-            if (!Plugin.ShowProtected.Value && configKey.Description.Tags.FirstOrDefault(x => x is ProtectedConfig) is ProtectedConfig protectedConfig)
+            if (!Plugin.ShowProtected.Value && ProtectedConfig.GetMask(configKey) is string mask)
             {
                 TextField textField = field.FindNearestParent<Slot>().FindParent(x => x.Name == "DataFeedValueField<string>", 5).GetComponentInChildren<TextField>();
                 textField.Text.ParseRichText.Value = false;
                 textField.Editor.Target.Undo.Value = false;
-                textField.Text.MaskPattern.Value = protectedConfig.MaskString;
+                textField.Text.MaskPattern.Value = mask;
             }
             
             field.SyncWithConfigKey(configKey);

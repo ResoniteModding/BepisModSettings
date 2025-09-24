@@ -145,7 +145,7 @@ public static class BepisPluginPage
             List<string> added = new List<string>();
             foreach (ConfigEntryBase config in configFile.Values)
             {
-                if (!Plugin.ShowHidden.Value && config.Description.Tags.Any(x => x is HiddenConfig)) continue;
+                if (!Plugin.ShowHidden.Value && HiddenConfig.IsHidden(config)) continue;
 
                 Type valueType = config.SettingType;
 
@@ -202,7 +202,8 @@ public static class BepisPluginPage
                 {
                     DataFeedItem dummyField = null;
 
-                    if (config.Description.Tags.FirstOrDefault(x => x is ActionConfig) is ActionConfig action)
+                    var firstAction = config.Description.Tags.FirstOrDefault(x => x is ActionConfig || x is Action);
+                    if (firstAction != null)
                     {
                         DataFeedAction actionField = new DataFeedAction();
                         actionField.InitBase(key, path, groupingKeys, nameKey, descKey);
@@ -210,18 +211,20 @@ public static class BepisPluginPage
                         {
                             Button btn = syncDelegate.Slot.GetComponent<Button>();
                             if (btn == null) return;
-
-                            btn.LocalPressed += (_, _) => action.Invoke();
+                            if(firstAction is ActionConfig actionCofnig)
+                                btn.LocalPressed += (_, _) => actionCofnig.Invoke();
+                            else if (firstAction is Action action)
+                                btn.LocalPressed += (_, _) => action.Invoke();
                         });
 
                         dummyField = actionField;
                     }
 
                     bool customUi = false;
-                    if (config.Description.Tags.FirstOrDefault(x => x is CustomDataFeed) is CustomDataFeed customDataFeed)
+                    if (CustomDataFeed.GetCustomFeedMethod(config) is DataFeedMethod customDataFeed)
                     {
                         customUi = true;
-                        IAsyncEnumerable<DataFeedItem> datafeed = customDataFeed.Build(path, groupingKeys);
+                        IAsyncEnumerable<DataFeedItem> datafeed = customDataFeed(path, groupingKeys);
                         await foreach (DataFeedItem item in datafeed)
                         {
                             yield return item;
