@@ -8,6 +8,8 @@ public class ActionConfig(Delegate action)
 
     public object Invoke(params object[] args) => Action.DynamicInvoke(args);
 }
+/*
+TODO: implement these inside BepisPluginPage.cs, then uncomment
 
 public class ActionConfig<T>(Action<T> action) : ActionConfig(action)
 {
@@ -28,3 +30,4 @@ public class FuncConfig<T, TResult>(Func<T, TResult> func) : ActionConfig(func)
 {
     public TResult Invoke(T arg) => ((Func<T, TResult>)Action)(arg);
 }
+*/
