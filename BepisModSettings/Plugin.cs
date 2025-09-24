@@ -29,9 +29,9 @@ public class Plugin : BasePlugin
     // TODO: Add configs for specific things, like internal only etc
     // basically try to get feature parity with ResoniteModSettings
 
-    internal static ConfigEntry<bool> ShowHidden;
-    internal static ConfigEntry<bool> ShowProtected;
-    internal static ConfigEntry<bool> ShowEmptyPages;
+    public static ConfigEntry<bool> ShowHidden;
+    public static ConfigEntry<bool> ShowProtected;
+    public static ConfigEntry<bool> ShowEmptyPages;
 
     internal static ConfigEntry<dummy> TestAction;
     internal static ConfigEntry<string> TestProtected;

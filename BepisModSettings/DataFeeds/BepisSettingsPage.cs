@@ -99,16 +99,12 @@ public static class BepisSettingsPage
             }
             else
             {
-                DataFeedLabel noPlugins = new DataFeedLabel();
-                noPlugins.InitBase("NoPlugins", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoPlugins".AsLocaleKey());
-                yield return noPlugins;
+                yield return CreateNoPluginsLabel(path, loadedPluginsGroup);
             }
         }
         else
         {
-            DataFeedLabel noPlugins = new DataFeedLabel();
-            noPlugins.InitBase("NoPlugins", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoPlugins".AsLocaleKey());
-            yield return noPlugins;
+            yield return CreateNoPluginsLabel(path, loadedPluginsGroup);
         }
 
         if (CustomPluginsPages != null)
@@ -133,6 +129,13 @@ public static class BepisSettingsPage
         DataFeedCategory bepisCategory = new DataFeedCategory();
         bepisCategory.InitBase("BepInEx.Core.Config", path, coreGroupParam, "Settings.BepInEx.Core.Config".AsLocaleKey());
         yield return bepisCategory;
+    }
+    
+    private static DataFeedLabel CreateNoPluginsLabel(IReadOnlyList<string> path, string[] loadedPluginsGroup)
+    {
+        DataFeedLabel noPlugins = new DataFeedLabel();
+        noPlugins.InitBase("NoPlugins", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoPlugins".AsLocaleKey());
+        return noPlugins;
     }
 
     private static IEnumerable<PluginInfo> FilterPlugins(List<PluginInfo> plugins, string searchString)
