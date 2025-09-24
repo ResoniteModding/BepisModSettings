@@ -101,6 +101,7 @@ public class Plugin : BasePlugin
                 if (!path.Contains("BepInEx")) return __result;
 
                 DataFeedHelpers.SettingsDataFeed = __instance;
+                DataFeedHelpers.EnsureBetterInnerContainerItem();
 
                 return __instance.World.IsUserspace() ? DataFeedInjector.ReplaceEnumerable(__result, path) : DataFeedInjector.NotUserspaceEnumerator(path);
             }

@@ -321,6 +321,55 @@ public static class DataFeedHelpers
         }
     }
 
+    internal static void EnsureBetterInnerContainerItem()
+    {
+        try
+        {
+            Slot templatesRoot = Mapper.Slot.Parent?.FindChild("Templates");
+            if (templatesRoot == null) return;
+
+            Slot betterInnterInterfaceSlot = templatesRoot.FindChild("Injected - InnerContainerItem");
+            templatesRoot.RunSynchronously(() =>
+            {
+                if (betterInnterInterfaceSlot != null) return;
+
+                Slot innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
+                if (innerInterfaceSlot != null)
+                {
+                    betterInnterInterfaceSlot = innerInterfaceSlot.Duplicate();
+                    betterInnterInterfaceSlot.Name = "Injected - InnerContainerItem";
+                    betterInnterInterfaceSlot.ActiveSelf = false;
+                    betterInnterInterfaceSlot.PersistentSelf = false;
+
+                    betterInnterInterfaceSlot.FindChildInHierarchy("Button")?.Parent.Destroy();
+                }
+                else
+                {
+                    Plugin.Log.LogError("InnerContainerItem slot is null in EnsureBetterInnerContainerItem!");
+                }
+            });
+
+            // this is kinda hacky, but it works.
+            while (betterInnterInterfaceSlot == null)
+            {
+                Task.Delay(10).Wait();
+            }
+
+            FeedItemInterface injectedInnerContainerItem = betterInnterInterfaceSlot.GetComponent<FeedItemInterface>();
+            templatesRoot.ForeachComponentInChildren<FeedItemInterface>(interface2 =>
+            {
+                if (interface2 == null) return;
+                if (interface2.ParentContainer.Target != null) return;
+
+                interface2.ParentContainer.Target = injectedInnerContainerItem;
+            });
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error in EnsureBetterInnerContainerItem: {e}");
+        }
+    }
+
     public static async IAsyncEnumerable<DataFeedItem> AsAsyncEnumerable(this DataFeedItem item)
     {
         await Task.CompletedTask;

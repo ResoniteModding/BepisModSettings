@@ -120,7 +120,7 @@ public static class BepisPluginPage
         if (!string.IsNullOrWhiteSpace(metadata.Link) && Uri.TryCreate(metadata.Link, UriKind.Absolute, out var uri))
         {
             var modHyperlink = new DataFeedAction();
-            modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey());
+            modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey(), metadata.Link);
             modHyperlink.InitAction(syncDelegate =>
             {
                 var slot = syncDelegate?.Slot;

@@ -66,24 +66,28 @@ public static class BepisSettingsPage
             List<PluginInfo> filteredPlugins = FilterPlugins(sortedPlugins, SearchString).ToList();
             if (filteredPlugins.Count > 0)
             {
-                foreach (PluginInfo plugin in filteredPlugins)
+                foreach (PluginInfo pluginInfo in filteredPlugins)
                 {
-                    BepInPlugin metaData = plugin.Metadata;
+                    BepInPlugin pMetadata = MetadataHelper.GetMetadata(pluginInfo.Instance) ?? pluginInfo.Metadata;
+                    ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
 
-                    string pluginname = metaData.Name;
-                    string pluginGuid = metaData.GUID;
+                    ModMeta metaData = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pMetadata.GUID, resonitePlugin?.Author, resonitePlugin?.Link);
 
-                    LocaleString nameKey = pluginname;
-                    LocaleString description = $"{pluginname}\n{pluginGuid}\n({metaData.Version})";
+                    string pluginName = metaData.Name;
+                    string pluginGuid = metaData.ID;
+                    string pluginAuthor = metaData.Author;
 
-                    if (LocaleLoader.PluginsWithLocales.Contains(plugin))
+                    LocaleString nameKey = pluginName;
+                    LocaleString description = $"{pluginName} ({metaData.Version}){(!string.IsNullOrEmpty(pluginAuthor) ? $"\nby \"{pluginAuthor}\"" : "")}\n\n{pluginGuid}";
+
+                    if (LocaleLoader.PluginsWithLocales.Contains(pluginInfo))
                     {
                         nameKey = $"Settings.{pluginGuid}".AsLocaleKey();
                         description = $"Settings.{pluginGuid}.Description".AsLocaleKey();
                     }
                     else
                     {
-                        LocaleLoader.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", pluginname, authors: PluginMetadata.AUTHORS);
+                        LocaleLoader.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", pluginName, authors: PluginMetadata.AUTHORS);
                     }
 
                     DataFeedCategory loadedPlugin = new DataFeedCategory();
@@ -130,7 +134,7 @@ public static class BepisSettingsPage
         bepisCategory.InitBase("BepInEx.Core.Config", path, coreGroupParam, "Settings.BepInEx.Core.Config".AsLocaleKey());
         yield return bepisCategory;
     }
-    
+
     private static DataFeedLabel CreateNoPluginsLabel(IReadOnlyList<string> path, string[] loadedPluginsGroup)
     {
         DataFeedLabel noPlugins = new DataFeedLabel();
@@ -144,13 +148,16 @@ public static class BepisSettingsPage
 
         return plugins.Where(plugin =>
         {
-            if (!Plugin.ShowEmptyPages.Value && plugin.Instance is BasePlugin plug && plug.Config.Count == 0)
-                return false;
+            if (!Plugin.ShowEmptyPages.Value)
+            {
+                if (plugin.Instance is BasePlugin plug && plug.Config.Count == 0)
+                    return false;
+            }
 
             if (string.IsNullOrWhiteSpace(searchString))
                 return true;
-            
-            BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin) ?? plugin.Metadata;
+
+            BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin.Instance) ?? plugin.Metadata;
             ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
 
             ModMeta metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pMetadata.GUID, resonitePlugin?.Author, resonitePlugin?.Link);
