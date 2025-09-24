@@ -31,6 +31,7 @@ public class Plugin : BasePlugin
 
     internal static ConfigEntry<bool> ShowHidden;
     internal static ConfigEntry<bool> ShowProtected;
+    internal static ConfigEntry<bool> ShowEmptyPages;
 
     internal static ConfigEntry<dummy> TestAction;
     internal static ConfigEntry<string> TestProtected;
@@ -44,6 +45,7 @@ public class Plugin : BasePlugin
 
         ShowHidden = Config.Bind("General", "ShowHidden", false, new ConfigDescription("Whether to show hidden Configs", null, new ConfigLocale("Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden", "Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden.Description")));
         ShowProtected = Config.Bind("General", "ShowProtected", false, "Whether to show protected Configs");
+        ShowEmptyPages = Config.Bind("General", "ShowEmptyPages", true, "Whether to show category buttons for pages which would have no content");
 
         TestAction = Config.Bind("Tests", "TestAction", default(dummy), new ConfigDescription("TestAction", null, new ActionConfig(() => Log.LogError("OneOfThem"))));
         TestProtected = Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));

@@ -137,30 +137,31 @@ public static class BepisSettingsPage
 
     private static IEnumerable<PluginInfo> FilterPlugins(List<PluginInfo> plugins, string searchString)
     {
-        if (string.IsNullOrWhiteSpace(searchString))
-        {
-            return plugins;
-        }
-
-        string searchLower = searchString.ToLowerInvariant();
+        searchString = searchString.Trim();
 
         return plugins.Where(plugin =>
         {
+            if (!Plugin.ShowEmptyPages.Value && plugin.Instance is BasePlugin plug && plug.Config.Count == 0)
+                return false;
+
+            if (string.IsNullOrWhiteSpace(searchString))
+                return true;
+            
             BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin) ?? plugin.Metadata;
             ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
 
             ModMeta metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pMetadata.GUID, resonitePlugin?.Author, resonitePlugin?.Link);
 
-            if (metadata.Name.Contains(searchLower, StringComparison.InvariantCultureIgnoreCase))
+            if (metadata.Name.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
                 return true;
 
-            if (metadata.ID.Contains(searchLower, StringComparison.InvariantCultureIgnoreCase))
+            if (metadata.ID.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
                 return true;
 
-            if (metadata.Version.Contains(searchLower, StringComparison.InvariantCultureIgnoreCase))
+            if (metadata.Version.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
                 return true;
 
-            if (!string.IsNullOrEmpty(metadata.Author) && metadata.Author.Contains(searchLower, StringComparison.InvariantCultureIgnoreCase))
+            if (!string.IsNullOrEmpty(metadata.Author) && metadata.Author.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
                 return true;
 
             return false;
