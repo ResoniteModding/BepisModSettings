@@ -290,7 +290,7 @@ public static class BepisPluginPage
                             DataFeedValueField<dummy> dummyField = new DataFeedValueField<dummy>();
                             dummyField.InitBase(key, path, groupingKeys, defaultKey, descKey);
 
-                            nullableEnumItems = GetDummyAsync(dummyField);
+                            nullableEnumItems = dummyField.AsAsyncEnumerable();
                         }
 
                         await foreach (DataFeedItem item in nullableEnumItems)
@@ -386,13 +386,6 @@ public static class BepisPluginPage
             }
         });
         yield return resetAct;
-    }
-
-    private static async IAsyncEnumerable<DataFeedItem> GetDummyAsync(DataFeedItem item)
-    {
-        await Task.CompletedTask;
-
-        yield return item;
     }
 
     private static void LoadConfigs(string pluginId)

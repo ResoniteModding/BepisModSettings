@@ -41,12 +41,12 @@ public static class DataFeedHelpers
 
     private static DataFeedItemMapper Mapper => RootCategoryView?.ItemsManager.TemplateMapper.Target.FilterWorldElement();
 
-    public static readonly MethodInfo GenerateEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateEnumItemsAsyncMethod));
-    public static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
-    public static readonly MethodInfo GenerateValueField = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateValueFieldMethod));
-    public static readonly MethodInfo HandleFlagsEnumCategory = AccessTools.Method(typeof(DataFeedHelpers), nameof(HandleFlagsEnumCategoryMethod));
+    internal static readonly MethodInfo GenerateEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateEnumItemsAsyncMethod));
+    internal static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
+    internal static readonly MethodInfo GenerateValueField = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateValueFieldMethod));
+    internal static readonly MethodInfo HandleFlagsEnumCategory = AccessTools.Method(typeof(DataFeedHelpers), nameof(HandleFlagsEnumCategoryMethod));
 
-    public static DataFeedToggle GenerateToggle(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
+    internal static DataFeedToggle GenerateToggle(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
     {
         DataFeedToggle toggle = new DataFeedToggle();
         toggle.InitBase($"{key}.Toggle", path, groupKeys, internalLocale.Key, internalLocale.Description);
@@ -55,7 +55,7 @@ public static class DataFeedHelpers
         return toggle;
     }
 
-    public static DataFeedValueField<T> GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
+    internal static DataFeedValueField<T> GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
     {
         DataFeedValueField<T> valueField = new DataFeedValueField<T>();
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
@@ -72,16 +72,12 @@ public static class DataFeedHelpers
             field.SyncWithConfigKey(configKey);
         });
 
-
-        if (configKey.SettingType.IsTypeInjectable() && SettingsDataFeed != null)
-        {
-            SettingsDataFeed.Slot.RunSynchronously(() => InjectNewTemplateType(configKey.SettingType));
-        }
+        TryInjectNewTemplateType(configKey.SettingType);
 
         return valueField;
     }
 
-    public static DataFeedValueField<string> GenerateProxyField(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
+    internal static DataFeedValueField<string> GenerateProxyField(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
     {
         DataFeedValueField<string> valueField = new DataFeedValueField<string>();
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
@@ -325,7 +321,22 @@ public static class DataFeedHelpers
         }
     }
 
-    internal static bool IsTypeInjectable(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
+    public static async IAsyncEnumerable<DataFeedItem> AsAsyncEnumerable(this DataFeedItem item)
+    {
+        await Task.CompletedTask;
+
+        yield return item;
+    }
+
+    public static bool IsTypeInjectable(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
+
+    public static bool TryInjectNewTemplateType(Type typeToInject)
+    {
+        if (!typeToInject.IsTypeInjectable() || SettingsDataFeed == null) return false;
+
+        SettingsDataFeed.Slot.RunSynchronously(() => InjectNewTemplateType(typeToInject));
+        return true;
+    }
 
     private static void InjectNewTemplateType(Type typeToInject)
     {
