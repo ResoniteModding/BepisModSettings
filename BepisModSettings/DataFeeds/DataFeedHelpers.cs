@@ -1,13 +1,13 @@
 ﻿/*
-* This file is based on code from:
-* https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
-*
-* Original code licensed under the GNU Lesser General Public License v3.0.
-* In accordance with the LGPL v3.0, this file is redistributed under
-* the terms of the GNU General Public License v3.0, as permitted by LGPL v3.0.
-*
-* Modifications: Edited by NepuShiro and ResoniteModding contributors.
-*/
+ * This file is based on code from:
+ * https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
+ *
+ * Original code licensed under the GNU Lesser General Public License v3.0.
+ * In accordance with the LGPL v3.0, this file is redistributed under
+ * the terms of the GNU General Public License v3.0, as permitted by LGPL v3.0.
+ *
+ * Modifications: Edited by NepuShiro and ResoniteModding contributors.
+ */
 
 using System;
 using System.Collections.Generic;
@@ -29,6 +29,7 @@ public static class DataFeedHelpers
     internal static SettingsDataFeed SettingsDataFeed { get; set; }
 
     private static RootCategoryView _rootCategoryView;
+
     private static RootCategoryView RootCategoryView
     {
         get
@@ -67,11 +68,10 @@ public static class DataFeedHelpers
                 textField.Editor.Target.Undo.Value = false;
                 textField.Text.MaskPattern.Value = mask;
             }
-            
+
             field.SyncWithConfigKey(configKey);
         });
-        
-        
+
 
         if (configKey.SettingType.IsTypeInjectable() && SettingsDataFeed != null)
         {
@@ -182,7 +182,7 @@ public static class DataFeedHelpers
         void KeyChanged(object sender, SettingChangedEventArgs e)
         {
             if (e.ChangedSetting != configKey) return;
-            var valAsStr = TomlTypeConverter.ConvertToString(e.ChangedSetting.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType);
+            string valAsStr = TomlTypeConverter.ConvertToString(e.ChangedSetting.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType);
             if (Equals(field.Value, valAsStr))
                 return;
 
@@ -443,7 +443,7 @@ public static class DataFeedHelpers
             Plugin.Log.LogError("Could not find Templates slot in DoInject!");
         }
     }
-    
+
     private static bool _isUpdatingSettings;
 
     public static bool GoUpOneSetting()
@@ -451,20 +451,10 @@ public static class DataFeedHelpers
         try
         {
             RootCategoryView rcv = GetRootCategoryView();
-            if (rcv == null)
-            {
-                Plugin.Log.LogWarning("Cannot navigate up: RootCategoryView not found or not in BepInEx settings");
-                return false;
-            }
+            if (rcv == null || rcv.Path.Count <= 1) return false;
 
-            if (rcv.Path.Count <= 1)
-            {
-                Plugin.Log.LogInfo("Already at the root category, cannot go up further");
-                return false;
-            }
-
-            string[] newPath = rcv.Path.Take(rcv.Path.Count - 1).ToArray();
-            return SetCategoryPathSafe(rcv, newPath);
+            rcv.MoveUpInCategory();
+            return true;
         }
         catch (Exception e)
         {
@@ -475,33 +465,18 @@ public static class DataFeedHelpers
 
     public static bool GoToSettingPath(string path)
     {
-        if (string.IsNullOrEmpty(path))
-        {
-            Plugin.Log.LogWarning("Cannot navigate to empty or null path");
-            return false;
-        }
-
+        if (string.IsNullOrEmpty(path)) return false;
         return GoToSettingPath(new[] { path });
     }
 
     public static bool GoToSettingPath(string[] path)
     {
-        if (path == null || path.Length == 0)
-        {
-            Plugin.Log.LogWarning("Cannot navigate to null or empty path array");
-            return false;
-        }
+        if (path == null || path.Length == 0) return false;
 
         try
         {
             RootCategoryView rcv = GetRootCategoryView();
-            if (rcv == null)
-            {
-                Plugin.Log.LogWarning($"Cannot navigate to path [{string.Join("/", path)}]: RootCategoryView not found or not in BepInEx settings");
-                return false;
-            }
-
-            return SetCategoryPathSafe(rcv, path);
+            return rcv != null && SetCategoryPathSafe(rcv, path);
         }
         catch (Exception e)
         {
@@ -517,11 +492,9 @@ public static class DataFeedHelpers
         try
         {
             _isUpdatingSettings = true;
-
             RootCategoryView rcv = GetRootCategoryView();
             if (rcv == null)
             {
-                Plugin.Log.LogWarning("Cannot refresh settings: RootCategoryView not found or not in BepInEx settings");
                 _isUpdatingSettings = false;
                 return false;
             }
@@ -541,6 +514,7 @@ public static class DataFeedHelpers
             {
                 try
                 {
+                    // Go back to the original path
                     SetCategoryPathSafe(rcv, currentPath);
                 }
                 catch (Exception e)
@@ -565,11 +539,7 @@ public static class DataFeedHelpers
 
     private static bool SetCategoryPathSafe(RootCategoryView rcv, string[] path)
     {
-        if (rcv == null || path == null)
-        {
-            Plugin.Log.LogWarning("Cannot set category path: rcv or path is null");
-            return false;
-        }
+        if (rcv == null || path == null) return false;
 
         try
         {
@@ -578,7 +548,7 @@ public static class DataFeedHelpers
         }
         catch (Exception e)
         {
-            Plugin.Log.LogError($"Failed to set category path [{string.Join("/", path)}]: {e}");
+            Plugin.Log.LogError($"SetCategoryPathSafe [{string.Join("/", path)}] failed: {e}");
             return false;
         }
     }
@@ -587,23 +557,9 @@ public static class DataFeedHelpers
     {
         try
         {
-            RootCategoryView rcv = RootCategoryView;
-            if (rcv == null)
-            {
-                SettingsDataFeed settingsDataFeed = Userspace.UserspaceWorld?.RootSlot?.GetComponentInChildren<SettingsDataFeed>();
-                rcv = settingsDataFeed?.Slot?.GetComponent<RootCategoryView>();
-            }
+            RootCategoryView rcv = RootCategoryView ?? Userspace.UserspaceWorld?.RootSlot?.GetComponentInChildren<SettingsDataFeed>()?.Slot?.GetComponent<RootCategoryView>(); // <- just for safety :)
 
-            if (rcv?.Path == null || rcv.Path.Count == 0)
-            {
-                return null;
-            }
-
-            if (rcv.Path.All(p => p?.Contains("BepInEx", StringComparison.OrdinalIgnoreCase) != true))
-            {
-                return null;
-            }
-
+            if (rcv?.Path == null) throw new Exception("Path is null or empty");
             return rcv;
         }
         catch (Exception e)

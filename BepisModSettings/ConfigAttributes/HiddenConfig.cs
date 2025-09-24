@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace BepisModSettings.ConfigAttributes;
 
-public class HiddenConfig 
+public class HiddenConfig
 {
     public static bool IsHidden(ConfigEntryBase config)
     {

@@ -20,7 +20,7 @@ namespace BepisModSettings.DataFeeds;
 public static class BepisPluginPage
 {
     internal static readonly Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>> CategoryHandlers = new Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>>();
-    
+
     public static event Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> CustomPluginConfigsPages;
 
     internal static async IAsyncEnumerable<DataFeedItem> Enumerate(IReadOnlyList<string> path)
@@ -43,7 +43,7 @@ public static class BepisPluginPage
                     }
                 }
             }
-            
+
             yield break;
         }
 
@@ -63,10 +63,8 @@ public static class BepisPluginPage
             BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin);
             ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
 
-            var assCo = resonitePlugin?.Author ??
-                plugin.GetType().Assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company;
-            var assUrl = resonitePlugin?.Link ??
-                plugin.GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()?.FirstOrDefault(a => a.Key.ToLower().Contains("url"))?.Value;
+            string assCo = resonitePlugin?.Author ?? plugin.GetType().Assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company;
+            string assUrl = resonitePlugin?.Link ?? plugin.GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()?.FirstOrDefault(a => a.Key.ToLower().Contains("url"))?.Value;
 
             configFile = plugin.Config;
             metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pluginId, assCo, assUrl);
@@ -202,7 +200,7 @@ public static class BepisPluginPage
                 {
                     DataFeedItem dummyField = null;
 
-                    var firstAction = config.Description.Tags.FirstOrDefault(x => x is ActionConfig || x is Action);
+                    object firstAction = config.Description.Tags.FirstOrDefault(x => x is ActionConfig or Action);
                     if (firstAction != null)
                     {
                         DataFeedAction actionField = new DataFeedAction();
@@ -211,8 +209,9 @@ public static class BepisPluginPage
                         {
                             Button btn = syncDelegate.Slot.GetComponent<Button>();
                             if (btn == null) return;
-                            if(firstAction is ActionConfig actionCofnig)
-                                btn.LocalPressed += (_, _) => actionCofnig.Invoke();
+
+                            if (firstAction is ActionConfig actionConfig)
+                                btn.LocalPressed += (_, _) => actionConfig.Invoke();
                             else if (firstAction is Action action)
                                 btn.LocalPressed += (_, _) => action.Invoke();
                         });

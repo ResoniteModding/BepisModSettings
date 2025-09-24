@@ -70,7 +70,7 @@ public class Plugin : BasePlugin
             Engine.Current.OnShutdown += () =>
             {
                 Plugin.Log.LogInfo("Running shutdown, saving configs...");
-                
+
                 Plugin.Log.LogDebug("Saving Config for BepInEx.Core");
                 ConfigFile.CoreConfig?.Save();
 
@@ -97,7 +97,7 @@ public class Plugin : BasePlugin
             try
             {
                 if (!path.Contains("BepInEx")) return __result;
-                
+
                 DataFeedHelpers.SettingsDataFeed = __instance;
 
                 return __instance.World.IsUserspace() ? DataFeedInjector.ReplaceEnumerable(__result, path) : DataFeedInjector.NotUserspaceEnumerator(path);
