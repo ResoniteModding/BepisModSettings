@@ -32,19 +32,12 @@ public static class BepisSettingsPage
         searchField.InitBase("SearchField", path, searchGroupParam, "Settings.BepInEx.SearchField".AsLocaleKey());
         searchField.InitSetupValue(field =>
         {
-            field.Value = SearchString;
-            field.Changed += FieldChanged;
-
             Slot slot = field.FindNearestParent<Slot>();
             if (slot == null) return;
 
+            field.Value = SearchString;
+            field.Changed += _ => SearchString = field.Value;
             slot.GetComponentInParents<TextEditor>().LocalEditingFinished += _ => DataFeedHelpers.RefreshSettingsScreen();
-            return;
-
-            void FieldChanged(IChangeable _)
-            {
-                SearchString = field.Value;
-            }
         });
         yield return searchField;
 
