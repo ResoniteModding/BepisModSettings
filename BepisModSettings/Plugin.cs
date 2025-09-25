@@ -29,8 +29,9 @@ public class Plugin : BasePlugin
     // TODO: Add configs for specific things, like internal only etc
     // basically try to get feature parity with ResoniteModSettings
 
-    internal static ConfigEntry<bool> ShowHidden;
-    internal static ConfigEntry<bool> ShowProtected;
+    public static ConfigEntry<bool> ShowHidden;
+    public static ConfigEntry<bool> ShowProtected;
+    public static ConfigEntry<bool> ShowEmptyPages;
 
     internal static ConfigEntry<dummy> TestAction;
     internal static ConfigEntry<string> TestProtected;
@@ -44,6 +45,7 @@ public class Plugin : BasePlugin
 
         ShowHidden = Config.Bind("General", "ShowHidden", false, new ConfigDescription("Whether to show hidden Configs", null, new ConfigLocale("Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden", "Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden.Description")));
         ShowProtected = Config.Bind("General", "ShowProtected", false, "Whether to show protected Configs");
+        ShowEmptyPages = Config.Bind("General", "ShowEmptyPages", true, "Whether to show category buttons for pages which would have no content");
 
         TestAction = Config.Bind("Tests", "TestAction", default(dummy), new ConfigDescription("TestAction", null, new ActionConfig(() => Log.LogError("OneOfThem"))));
         TestProtected = Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));
@@ -70,7 +72,7 @@ public class Plugin : BasePlugin
             Engine.Current.OnShutdown += () =>
             {
                 Plugin.Log.LogInfo("Running shutdown, saving configs...");
-                
+
                 Plugin.Log.LogDebug("Saving Config for BepInEx.Core");
                 ConfigFile.CoreConfig?.Save();
 
@@ -92,11 +94,15 @@ public class Plugin : BasePlugin
     private static class EnumeratorPostfix
     {
         [SuppressMessage("ReSharper", "PossibleMultipleEnumeration")]
-        private static IAsyncEnumerable<DataFeedItem> Postfix(IAsyncEnumerable<DataFeedItem> __result, SettingsDataFeed __instance, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
+        private static IAsyncEnumerable<DataFeedItem> Postfix(IAsyncEnumerable<DataFeedItem> __result, SettingsDataFeed __instance, IReadOnlyList<string> path)
         {
             try
             {
                 if (!path.Contains("BepInEx")) return __result;
+
+                DataFeedHelpers.SettingsDataFeed = __instance;
+                // TODO: Find a way to do this non-destructively
+                // DataFeedHelpers.EnsureBetterInnerContainerItem();
 
                 return __instance.World.IsUserspace() ? DataFeedInjector.ReplaceEnumerable(__result, path) : DataFeedInjector.NotUserspaceEnumerator(path);
             }

@@ -14,17 +14,19 @@ public sealed class CustomDataFeed(DataFeedMethod action)
     public static DataFeedMethod GetCustomFeedMethod(ConfigEntryBase config)
     {
         if (config?.Description?.Tags == null) return null;
-        foreach (var tag in config.Description.Tags)
+        foreach (object tag in config.Description.Tags)
         {
-            if(tag is CustomDataFeed customDataFeed)
+            if (tag is CustomDataFeed customDataFeed)
             {
                 return customDataFeed._action;
             }
-            if(tag is Func<IReadOnlyList<string>, IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> func)
+
+            if (tag is Func<IReadOnlyList<string>, IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> func)
             {
-                return (DataFeedMethod) Delegate.CreateDelegate(typeof(DataFeedMethod), func.Target, func.Method);
+                return (DataFeedMethod)Delegate.CreateDelegate(typeof(DataFeedMethod), func.Target, func.Method);
             }
         }
+
         return null;
     }
 }

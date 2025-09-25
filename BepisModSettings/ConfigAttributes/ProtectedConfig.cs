@@ -12,17 +12,19 @@ public class ProtectedConfig(string maskString)
     public static string GetMask(ConfigEntryBase config)
     {
         if (config?.Description?.Tags == null) return null;
-        foreach (var tag in config.Description.Tags)
+        foreach (object tag in config.Description.Tags)
         {
-            if(tag is ProtectedConfig protectedConfig)
+            if (tag is ProtectedConfig protectedConfig)
             {
                 return protectedConfig.MaskString;
             }
-            else if(tag as string == "Protected")
+
+            if (tag as string == "Protected")
             {
                 return "*";
             }
         }
+
         return null;
     }
 }

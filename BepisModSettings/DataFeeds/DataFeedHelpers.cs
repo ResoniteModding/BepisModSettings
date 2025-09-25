@@ -1,13 +1,13 @@
 ﻿/*
-* This file is based on code from:
-* https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
-*
-* Original code licensed under the GNU Lesser General Public License v3.0.
-* In accordance with the LGPL v3.0, this file is redistributed under
-* the terms of the GNU General Public License v3.0, as permitted by LGPL v3.0.
-*
-* Modifications: Edited by NepuShiro and ResoniteModding contributors.
-*/
+ * This file is based on code from:
+ * https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
+ *
+ * Original code licensed under the GNU Lesser General Public License v3.0.
+ * In accordance with the LGPL v3.0, this file is redistributed under
+ * the terms of the GNU General Public License v3.0, as permitted by LGPL v3.0.
+ *
+ * Modifications: Edited by NepuShiro and ResoniteModding contributors.
+ */
 
 using System;
 using System.Collections.Generic;
@@ -26,16 +26,7 @@ namespace BepisModSettings.DataFeeds;
 
 public static class DataFeedHelpers
 {
-    private static GridContainerScreen _settingsScreen;
-
-    private static GridContainerScreen SettingsScreen
-    {
-        get
-        {
-            _settingsScreen = _settingsScreen?.FilterWorldElement() ?? Userspace.UserspaceWorld.RootSlot.GetComponentInChildren<GridContainerScreen>(x => x.Label.Value == "Settings");
-            return _settingsScreen;
-        }
-    }
+    internal static SettingsDataFeed SettingsDataFeed { get; set; }
 
     private static RootCategoryView _rootCategoryView;
 
@@ -43,19 +34,19 @@ public static class DataFeedHelpers
     {
         get
         {
-            _rootCategoryView = _rootCategoryView?.FilterWorldElement() ?? SettingsScreen.Slot.GetComponentInChildren<RootCategoryView>();
+            _rootCategoryView = _rootCategoryView?.FilterWorldElement() ?? SettingsDataFeed.Slot.GetComponent<RootCategoryView>();
             return _rootCategoryView;
         }
     }
 
     private static DataFeedItemMapper Mapper => RootCategoryView?.ItemsManager.TemplateMapper.Target.FilterWorldElement();
 
-    public static readonly MethodInfo GenerateEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateEnumItemsAsyncMethod));
-    public static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
-    public static readonly MethodInfo GenerateValueField = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateValueFieldMethod));
-    public static readonly MethodInfo HandleFlagsEnumCategory = AccessTools.Method(typeof(DataFeedHelpers), nameof(HandleFlagsEnumCategoryMethod));
+    internal static readonly MethodInfo GenerateEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateEnumItemsAsyncMethod));
+    internal static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
+    internal static readonly MethodInfo GenerateValueField = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateValueFieldMethod));
+    internal static readonly MethodInfo HandleFlagsEnumCategory = AccessTools.Method(typeof(DataFeedHelpers), nameof(HandleFlagsEnumCategoryMethod));
 
-    public static DataFeedToggle GenerateToggle(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
+    internal static DataFeedToggle GenerateToggle(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
     {
         DataFeedToggle toggle = new DataFeedToggle();
         toggle.InitBase($"{key}.Toggle", path, groupKeys, internalLocale.Key, internalLocale.Description);
@@ -64,7 +55,7 @@ public static class DataFeedHelpers
         return toggle;
     }
 
-    public static DataFeedValueField<T> GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
+    internal static DataFeedValueField<T> GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
     {
         DataFeedValueField<T> valueField = new DataFeedValueField<T>();
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
@@ -77,29 +68,24 @@ public static class DataFeedHelpers
                 textField.Editor.Target.Undo.Value = false;
                 textField.Text.MaskPattern.Value = mask;
             }
-            
+
             field.SyncWithConfigKey(configKey);
         });
-        
-        
 
-        if (configKey.SettingType.IsTypeInjectable() && SettingsScreen?.Slot != null)
-        {
-            SettingsScreen.Slot.RunSynchronously(() => InjectNewTemplateType(configKey.SettingType));
-        }
+        TryInjectNewTemplateType(configKey.SettingType);
 
         return valueField;
     }
 
-    public static DataFeedValueField<string> GenerateProxyField(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
+    internal static DataFeedValueField<string> GenerateProxyField(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
     {
         DataFeedValueField<string> valueField = new DataFeedValueField<string>();
         valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
         valueField.InitSetupValue(field => field.SyncProxyWithConfigKey(configKey));
 
-        if (TomlTypeConverter.CanConvert(configKey.SettingType) && SettingsScreen?.Slot != null)
+        if (TomlTypeConverter.CanConvert(configKey.SettingType) && SettingsDataFeed != null)
         {
-            SettingsScreen.Slot.RunSynchronously(() => InjectNewTemplateType(typeof(string)));
+            SettingsDataFeed.Slot.RunSynchronously(() => InjectNewTemplateType(typeof(string)));
         }
 
         return valueField;
@@ -192,7 +178,7 @@ public static class DataFeedHelpers
         void KeyChanged(object sender, SettingChangedEventArgs e)
         {
             if (e.ChangedSetting != configKey) return;
-            var valAsStr = TomlTypeConverter.ConvertToString(e.ChangedSetting.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType);
+            string valAsStr = TomlTypeConverter.ConvertToString(e.ChangedSetting.BoxedValue ?? configKey.SettingType.GetDefault(), configKey.SettingType);
             if (Equals(field.Value, valAsStr))
                 return;
 
@@ -335,7 +321,72 @@ public static class DataFeedHelpers
         }
     }
 
-    internal static bool IsTypeInjectable(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
+    // TODO: find a better way of doing this non-destructively
+    /*internal static void EnsureBetterInnerContainerItem()
+    {
+        try
+        {
+            Slot templatesRoot = Mapper.Slot.Parent?.FindChild("Templates");
+            if (templatesRoot == null) return;
+
+            Slot betterInnterInterfaceSlot = templatesRoot.FindChild("Injected - InnerContainerItem");
+            if (betterInnterInterfaceSlot == null)
+            {
+                templatesRoot.RunSynchronously(() =>
+                {
+                    Slot innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
+                    if (innerInterfaceSlot != null)
+                    {
+                        betterInnterInterfaceSlot = innerInterfaceSlot.Duplicate();
+                        betterInnterInterfaceSlot.Name = "Injected - InnerContainerItem";
+                        betterInnterInterfaceSlot.ActiveSelf = false;
+                        betterInnterInterfaceSlot.PersistentSelf = false;
+
+                        betterInnterInterfaceSlot.FindChildInHierarchy("Button")?.Parent.Destroy();
+                        
+                        FeedItemInterface injectedInnerContainerItem = betterInnterInterfaceSlot.GetComponent<FeedItemInterface>();
+                        templatesRoot.ForeachComponentInChildren<FeedItemInterface>(interface2 =>
+                        {
+                            if (interface2 == null) return;
+                            if (interface2.ParentContainer.Target != null) return;
+
+                            interface2.ParentContainer.Target = injectedInnerContainerItem;
+                        });
+                    }
+                    else
+                    {
+                        Plugin.Log.LogError("InnerContainerItem slot is null in EnsureBetterInnerContainerItem!");
+                    }
+                });
+            }
+
+            while (templatesRoot.FindChild("Injected - InnerContainerItem") == null)
+            {
+                Task.Delay(10).Wait();
+            }
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error in EnsureBetterInnerContainerItem: {e}");
+        }
+    }*/
+
+    public static async IAsyncEnumerable<DataFeedItem> AsAsyncEnumerable(this DataFeedItem item)
+    {
+        await Task.CompletedTask;
+
+        yield return item;
+    }
+
+    public static bool IsTypeInjectable(this Type type) => type.Name != nameof(dummy) && (type.IsEnginePrimitive() || type == typeof(Type));
+
+    public static bool TryInjectNewTemplateType(Type typeToInject)
+    {
+        if (!typeToInject.IsTypeInjectable() || SettingsDataFeed == null) return false;
+
+        SettingsDataFeed.Slot.RunSynchronously(() => InjectNewTemplateType(typeToInject));
+        return true;
+    }
 
     private static void InjectNewTemplateType(Type typeToInject)
     {
@@ -451,6 +502,131 @@ public static class DataFeedHelpers
         else
         {
             Plugin.Log.LogError("Could not find Templates slot in DoInject!");
+        }
+    }
+
+    private static bool _isUpdatingSettings;
+
+    public static bool GoUpOneSetting()
+    {
+        try
+        {
+            RootCategoryView rcv = GetRootCategoryView();
+            if (rcv == null || rcv.Path.Count <= 1) return false;
+
+            rcv.MoveUpInCategory();
+            return true;
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error navigating up one setting: {e}");
+            return false;
+        }
+    }
+
+    public static bool GoToSettingPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        return GoToSettingPath(new[] { path });
+    }
+
+    public static bool GoToSettingPath(string[] path)
+    {
+        if (path == null || path.Length == 0) return false;
+
+        try
+        {
+            RootCategoryView rcv = GetRootCategoryView();
+            return rcv != null && SetCategoryPathSafe(rcv, path);
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error navigating to path [{string.Join("/", path)}]: {e}");
+            return false;
+        }
+    }
+
+    public static bool RefreshSettingsScreen()
+    {
+        if (_isUpdatingSettings) return false;
+
+        try
+        {
+            _isUpdatingSettings = true;
+            RootCategoryView rcv = GetRootCategoryView();
+            if (rcv == null)
+            {
+                _isUpdatingSettings = false;
+                return false;
+            }
+
+            // Store the current path
+            string[] currentPath = rcv.Path.ToArray();
+
+            // Navigate to empty path to trigger refresh
+            if (!SetCategoryPathSafe(rcv, new[] { string.Empty }))
+            {
+                Plugin.Log.LogError("Failed to navigate to empty path during refresh");
+                _isUpdatingSettings = false;
+                return false;
+            }
+
+            rcv.RunInUpdates(3, () =>
+            {
+                try
+                {
+                    // Go back to the original path
+                    SetCategoryPathSafe(rcv, currentPath);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Log.LogError($"Error returning to original path after refresh: {e}");
+                }
+                finally
+                {
+                    _isUpdatingSettings = false;
+                }
+            });
+
+            return true;
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error refreshing settings screen: {e}");
+            _isUpdatingSettings = false;
+            return false;
+        }
+    }
+
+    private static bool SetCategoryPathSafe(RootCategoryView rcv, string[] path)
+    {
+        if (rcv == null || path == null) return false;
+
+        try
+        {
+            rcv.SetCategoryPath(path);
+            return true;
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"SetCategoryPathSafe [{string.Join("/", path)}] failed: {e}");
+            return false;
+        }
+    }
+
+    private static RootCategoryView GetRootCategoryView()
+    {
+        try
+        {
+            RootCategoryView rcv = RootCategoryView ?? Userspace.UserspaceWorld?.RootSlot?.GetComponentInChildren<SettingsDataFeed>()?.Slot?.GetComponent<RootCategoryView>(); // <- just for safety :)
+
+            if (rcv?.Path == null) throw new Exception("Path is null or empty");
+            return rcv;
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error getting RootCategoryView: {e}");
+            return null;
         }
     }
 }

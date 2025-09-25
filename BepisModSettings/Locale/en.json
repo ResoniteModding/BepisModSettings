@@ -9,6 +9,9 @@
     "Settings.BepInEx": "BepInEx",
     "Settings.BepInEx.Breadcrumb": "BepInEx",
     
+    "Settings.BepInEx.Search": "Search",
+    "Settings.BepInEx.SearchField": "Search Field",
+    
     "Settings.BepInEx.Warning": "Warning",
     "Settings.BepInEx.NotUserspace": "This menu is only available in userspace!",
     
@@ -21,6 +24,7 @@
 	"Settings.BepInEx.Plugins.LoadedPlugins": "Loaded Plugins",
 	"Settings.BepInEx.Plugins.NoConfigs": "This Plugin has No Configs",
 	"Settings.BepInEx.Plugins.NoPlugins": "There is no Plugins Loaded",
+	"Settings.BepInEx.Plugins.NoSearchResults": "No Plugins found",
     
     "Settings.BepInEx.Plugins.Config.FlagsEnum": "PlaceHolder",
     "Settings.BepInEx.Plugins.Config.FlagsEnum.Description": "Toggles the '{name}' enum flag.",
@@ -46,7 +50,6 @@
 	"Settings.ResoniteModding.BepisModSettings.Breadcrumb": "Bepis Mod Settings",
 	"Settings.ResoniteModding.BepisModSettings.Description": "Lets you edit your mod settings in settings tab of the dashboard.",
 
-    // TODO: Add a way to read these
 	"Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden": "Show Hidden Configs", 
 	"Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden.Description": "Whether to show hidden Configs"
   }
