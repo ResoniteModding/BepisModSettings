@@ -321,7 +321,8 @@ public static class DataFeedHelpers
         }
     }
 
-    internal static void EnsureBetterInnerContainerItem()
+    // TODO: find a better way of doing this non-destructively
+    /*internal static void EnsureBetterInnerContainerItem()
     {
         try
         {
@@ -329,46 +330,46 @@ public static class DataFeedHelpers
             if (templatesRoot == null) return;
 
             Slot betterInnterInterfaceSlot = templatesRoot.FindChild("Injected - InnerContainerItem");
-            templatesRoot.RunSynchronously(() =>
+            if (betterInnterInterfaceSlot == null)
             {
-                if (betterInnterInterfaceSlot != null) return;
-
-                Slot innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
-                if (innerInterfaceSlot != null)
+                templatesRoot.RunSynchronously(() =>
                 {
-                    betterInnterInterfaceSlot = innerInterfaceSlot.Duplicate();
-                    betterInnterInterfaceSlot.Name = "Injected - InnerContainerItem";
-                    betterInnterInterfaceSlot.ActiveSelf = false;
-                    betterInnterInterfaceSlot.PersistentSelf = false;
+                    Slot innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
+                    if (innerInterfaceSlot != null)
+                    {
+                        betterInnterInterfaceSlot = innerInterfaceSlot.Duplicate();
+                        betterInnterInterfaceSlot.Name = "Injected - InnerContainerItem";
+                        betterInnterInterfaceSlot.ActiveSelf = false;
+                        betterInnterInterfaceSlot.PersistentSelf = false;
 
-                    betterInnterInterfaceSlot.FindChildInHierarchy("Button")?.Parent.Destroy();
-                }
-                else
-                {
-                    Plugin.Log.LogError("InnerContainerItem slot is null in EnsureBetterInnerContainerItem!");
-                }
-            });
+                        betterInnterInterfaceSlot.FindChildInHierarchy("Button")?.Parent.Destroy();
+                        
+                        FeedItemInterface injectedInnerContainerItem = betterInnterInterfaceSlot.GetComponent<FeedItemInterface>();
+                        templatesRoot.ForeachComponentInChildren<FeedItemInterface>(interface2 =>
+                        {
+                            if (interface2 == null) return;
+                            if (interface2.ParentContainer.Target != null) return;
 
-            // this is kinda hacky, but it works.
-            while (betterInnterInterfaceSlot == null)
+                            interface2.ParentContainer.Target = injectedInnerContainerItem;
+                        });
+                    }
+                    else
+                    {
+                        Plugin.Log.LogError("InnerContainerItem slot is null in EnsureBetterInnerContainerItem!");
+                    }
+                });
+            }
+
+            while (templatesRoot.FindChild("Injected - InnerContainerItem") == null)
             {
                 Task.Delay(10).Wait();
             }
-
-            FeedItemInterface injectedInnerContainerItem = betterInnterInterfaceSlot.GetComponent<FeedItemInterface>();
-            templatesRoot.ForeachComponentInChildren<FeedItemInterface>(interface2 =>
-            {
-                if (interface2 == null) return;
-                if (interface2.ParentContainer.Target != null) return;
-
-                interface2.ParentContainer.Target = injectedInnerContainerItem;
-            });
         }
         catch (Exception e)
         {
             Plugin.Log.LogError($"Error in EnsureBetterInnerContainerItem: {e}");
         }
-    }
+    }*/
 
     public static async IAsyncEnumerable<DataFeedItem> AsAsyncEnumerable(this DataFeedItem item)
     {

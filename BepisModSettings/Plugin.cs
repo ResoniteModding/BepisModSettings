@@ -94,14 +94,15 @@ public class Plugin : BasePlugin
     private static class EnumeratorPostfix
     {
         [SuppressMessage("ReSharper", "PossibleMultipleEnumeration")]
-        private static IAsyncEnumerable<DataFeedItem> Postfix(IAsyncEnumerable<DataFeedItem> __result, SettingsDataFeed __instance, IReadOnlyList<string> path /*, IReadOnlyList<string> groupingKeys, string searchPhrase, object viewData*/)
+        private static IAsyncEnumerable<DataFeedItem> Postfix(IAsyncEnumerable<DataFeedItem> __result, SettingsDataFeed __instance, IReadOnlyList<string> path)
         {
             try
             {
                 if (!path.Contains("BepInEx")) return __result;
 
                 DataFeedHelpers.SettingsDataFeed = __instance;
-                DataFeedHelpers.EnsureBetterInnerContainerItem();
+                // TODO: Find a way to do this non-destructively
+                // DataFeedHelpers.EnsureBetterInnerContainerItem();
 
                 return __instance.World.IsUserspace() ? DataFeedInjector.ReplaceEnumerable(__result, path) : DataFeedInjector.NotUserspaceEnumerator(path);
             }
