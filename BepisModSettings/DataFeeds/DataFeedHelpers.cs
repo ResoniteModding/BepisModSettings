@@ -546,14 +546,14 @@ public static class DataFeedHelpers
         }
     }
 
-    public static bool RefreshSettingsScreen()
+    public static bool RefreshSettingsScreen(RootCategoryView rcv = null)
     {
         if (_isUpdatingSettings) return false;
 
         try
         {
             _isUpdatingSettings = true;
-            RootCategoryView rcv = GetRootCategoryView();
+            rcv ??= GetRootCategoryView();
             if (rcv == null)
             {
                 _isUpdatingSettings = false;

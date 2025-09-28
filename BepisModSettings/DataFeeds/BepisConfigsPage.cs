@@ -17,7 +17,7 @@ using ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Variables;
 
 namespace BepisModSettings.DataFeeds;
 
-public static class BepisPluginPage
+public static class BepisConfigsPage
 {
     internal static readonly Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>> CategoryHandlers = new Dictionary<string, Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>>>();
 
@@ -77,7 +77,7 @@ public static class BepisPluginPage
         if (string.IsNullOrWhiteSpace(metadata.ID))
             metadata.ID = "<i>Unknown</i>";
 
-        if (configFile.Count == 0)
+        if (configFile.Count == 0 || !configFile.Values.Any(config => Plugin.ShowHidden.Value || !HiddenConfig.IsHidden(config)))
         {
             DataFeedLabel noConfigs = new DataFeedLabel();
             noConfigs.InitBase("NoConfigs", path, null, "Settings.BepInEx.Plugins.NoConfigs".AsLocaleKey());
@@ -134,192 +134,194 @@ public static class BepisPluginPage
 
     private static async IAsyncEnumerable<DataFeedItem> EnumerateConfigs(ConfigFile configFile, ModMeta metaData, IReadOnlyList<string> path)
     {
-        // Used for enum config keys. basically you can define a function which will display a subcategory of this category.
         CategoryHandlers.Clear();
 
-        HashSet<string> sections = new HashSet<string>();
-        List<string> added = new List<string>();
-        foreach (ConfigEntryBase config in configFile.Values)
+        List<IGrouping<string, ConfigEntryBase>> groupedConfigs = configFile.Values.Where(config => Plugin.ShowHidden.Value || !HiddenConfig.IsHidden(config)).GroupBy(config => config.Definition.Section).ToList();
+        foreach (IGrouping<string, ConfigEntryBase> sectionGroup in groupedConfigs)
         {
-            if (!Plugin.ShowHidden.Value && HiddenConfig.IsHidden(config)) continue;
+            string section = sectionGroup.Key;
 
-            Type valueType = config.SettingType;
+            if (!sectionGroup.Any()) continue;
 
-            string section = config.Definition.Section;
-            if (sections.Add(section))
+            DataFeedResettableGroup configs = new DataFeedResettableGroup();
+            configs.InitBase(section, path, null, section);
+            configs.InitResetAction(a =>
             {
-                DataFeedResettableGroup configs = new DataFeedResettableGroup();
-                configs.InitBase(section, path, null, section);
-                configs.InitResetAction(a =>
+                Button but = a.Slot.GetComponentInChildren<Button>();
+                if (but == null) return;
+
+                but.LocalPressed += (b, _) =>
                 {
-                    Button but = a.Slot.GetComponentInChildren<Button>();
-                    if (but == null) return;
+                    Slot resetBtn = b.Slot.FindParent(x => x.Name == "Reset Button");
+                    DataModelValueFieldStore<bool>.Store store = resetBtn?.GetComponentInChildren<DataModelValueFieldStore<bool>.Store>();
+                    if (store == null) return;
 
-                    but.LocalPressed += (b, _) =>
-                    {
-                        Slot resetBtn = b.Slot.FindParent(x => x.Name == "Reset Button");
-                        var store = resetBtn?.GetComponentInChildren<DataModelValueFieldStore<bool>.Store>();
-                        if (store == null) return;
+                    if (!store.Value.Value) return;
+                    ResetConfigSection(metaData.ID, section);
+                };
+            });
+            yield return configs;
 
-                        if (!store.Value.Value) return;
-                        ResetConfigSection(metaData.ID, section);
-                    };
-                });
-                yield return configs;
-            }
-
-            string initKey = section + "." + config.Definition.Key;
-            string key = added.Contains(initKey) ? initKey + added.Count : initKey;
-
-            // TODO: Somehow support subcategories
-            LocaleString nameKey = config.Definition.Key;
-            LocaleString descKey = config.Description.Description;
-            LocaleString defaultKey = $"{config.Definition.Key} : {valueType}";
-            LocaleString valueKey = $"{config.Definition.Key} : {config.BoxedValue}";
-
-            bool hasLocale = LocaleLoader.PluginsWithLocales.Any(x => x.Metadata.GUID == metaData.ID);
-            if (hasLocale && config.Description.Tags.FirstOrDefault(x => x is ConfigLocale) is ConfigLocale localeString)
+            List<string> added = new List<string>();
+            foreach (ConfigEntryBase config in sectionGroup)
             {
-                nameKey = localeString.Name;
-                descKey = localeString.Description;
+                string initKey = section + "." + config.Definition.Key;
+                string key = added.Contains(initKey) ? initKey + added.Count : initKey;
 
-                string formatted = localeString.Name.content.GetFormattedLocaleString();
-                defaultKey = $"{formatted} : {valueType}";
-                valueKey = $"{formatted} : {config.BoxedValue}";
-            }
+                bool isHidden = HiddenConfig.IsHidden(config);
+                Type valueType = config.SettingType;
 
-            InternalLocale internalLocale = new InternalLocale(nameKey, descKey);
+                LocaleString nameKey = isHidden ? $"<color=hero.yellow>{config.Definition.Key}</color>" : config.Definition.Key;
+                LocaleString descKey = config.Description.Description;
+                LocaleString defaultKey = $"{config.Definition.Key} : {valueType}";
+                LocaleString valueKey = $"{config.Definition.Key} : {config.BoxedValue}";
 
-            added.Add(key);
-
-            string[] groupingKeys = [section];
-
-            if (valueType == typeof(dummy))
-            {
-                DataFeedItem dummyField = null;
-
-                object firstAction = config.Description.Tags.FirstOrDefault(x => x is ActionConfig or Action);
-                if (firstAction != null)
+                bool hasLocale = LocaleLoader.PluginsWithLocales.Any(x => x.Metadata.GUID == metaData.ID);
+                if (hasLocale && config.Description.Tags.FirstOrDefault(x => x is ConfigLocale) is ConfigLocale localeString)
                 {
-                    DataFeedAction actionField = new DataFeedAction();
-                    actionField.InitBase(key, path, groupingKeys, nameKey, descKey);
-                    actionField.InitAction(syncDelegate =>
-                    {
-                        Button btn = syncDelegate.Slot.GetComponent<Button>();
-                        if (btn == null) return;
+                    nameKey = localeString.Name;
+                    descKey = localeString.Description;
 
-                        if (firstAction is ActionConfig actionConfig)
-                            btn.LocalPressed += (_, _) => actionConfig.Invoke();
-                        else if (firstAction is Action action)
-                            btn.LocalPressed += (_, _) => action.Invoke();
-                    });
-
-                    dummyField = actionField;
+                    string formatted = localeString.Name.content.GetFormattedLocaleString();
+                    defaultKey = $"{formatted} : {valueType}";
+                    valueKey = $"{formatted} : {config.BoxedValue}";
                 }
 
-                bool customUi = false;
-                if (CustomDataFeed.GetCustomFeedMethod(config) is DataFeedMethod customDataFeed)
+                if (isHidden) nameKey = nameKey.SetFormat("<color=hero.yellow>{0}</color>");
+
+                InternalLocale internalLocale = new InternalLocale(nameKey, descKey);
+                added.Add(key);
+
+                string[] groupingKeys = [section];
+
+                // Keep your existing valueType logic here (dummy, bool, enum, nullable, etc.)
+                // unchanged, just moved inside the sectionGroup loop
+
+                if (valueType == typeof(dummy))
                 {
-                    customUi = true;
-                    IAsyncEnumerable<DataFeedItem> datafeed = customDataFeed(path, groupingKeys);
-                    await foreach (DataFeedItem item in datafeed)
+                    DataFeedItem dummyField = null;
+
+                    object firstAction = config.Description.Tags.FirstOrDefault(x => x is ActionConfig or Action);
+                    if (firstAction != null)
                     {
-                        yield return item;
+                        DataFeedAction actionField = new DataFeedAction();
+                        actionField.InitBase(key, path, groupingKeys, nameKey, descKey);
+                        actionField.InitAction(syncDelegate =>
+                        {
+                            Button btn = syncDelegate.Slot.GetComponent<Button>();
+                            if (btn == null) return;
+
+                            if (firstAction is ActionConfig actionConfig)
+                                btn.LocalPressed += (_, _) => actionConfig.Invoke();
+                            else if (firstAction is Action action)
+                                btn.LocalPressed += (_, _) => action.Invoke();
+                        });
+
+                        dummyField = actionField;
+                    }
+
+                    bool customUi = false;
+                    if (CustomDataFeed.GetCustomFeedMethod(config) is DataFeedMethod customDataFeed)
+                    {
+                        customUi = true;
+                        IAsyncEnumerable<DataFeedItem> datafeed = customDataFeed(path, groupingKeys);
+                        await foreach (DataFeedItem item in datafeed)
+                        {
+                            yield return item;
+                        }
+                    }
+
+                    if (dummyField == null && !customUi)
+                    {
+                        dummyField = new DataFeedValueField<dummy>();
+                        dummyField.InitBase(key, path, groupingKeys, nameKey, descKey);
+                    }
+
+                    if (!customUi)
+                    {
+                        yield return dummyField;
                     }
                 }
-
-                if (dummyField == null && !customUi)
+                else if (valueType == typeof(bool))
                 {
-                    dummyField = new DataFeedValueField<dummy>();
-                    dummyField.InitBase(key, path, groupingKeys, nameKey, descKey);
+                    yield return DataFeedHelpers.GenerateToggle(key, path, groupingKeys, internalLocale, config);
                 }
-
-                if (!customUi)
+                else if (valueType.IsEnum)
                 {
-                    yield return dummyField;
-                }
-            }
-            else if (valueType == typeof(bool))
-            {
-                yield return DataFeedHelpers.GenerateToggle(key, path, groupingKeys, internalLocale, config);
-            }
-            else if (valueType.IsEnum)
-            {
-                DataFeedItem enumItem;
-
-                try
-                {
-                    if (valueType.GetCustomAttribute<FlagsAttribute>() != null)
-                    {
-                        LocaleLoader.AddLocaleString($"Settings.{key}.Breadcrumb", initKey, authors: PluginMetadata.AUTHORS);
-
-                        CategoryHandlers.Add(key, path2 => (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
-                        enumItem = new DataFeedCategory();
-                        enumItem.InitBase(key, path, groupingKeys, valueKey, descKey);
-                    }
-                    else
-                    {
-                        enumItem = (DataFeedItem)DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Plugin.Log.LogError(e);
-                    enumItem = new DataFeedValueField<dummy>();
-                    enumItem.InitBase(key, path, groupingKeys, defaultKey, descKey);
-                }
-
-                yield return enumItem;
-            }
-            else if (valueType.IsNullable())
-            {
-                Type nullableType = valueType.GetGenericArguments()[0];
-                if (nullableType.IsEnum)
-                {
-                    IAsyncEnumerable<DataFeedItem> nullableEnumItems;
-
+                    DataFeedItem enumItem;
                     try
                     {
-                        nullableEnumItems = (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
+                        if (valueType.GetCustomAttribute<FlagsAttribute>() != null)
+                        {
+                            LocaleLoader.AddLocaleString($"Settings.{key}.Breadcrumb", initKey, authors: PluginMetadata.AUTHORS);
+
+                            CategoryHandlers.Add(key, path2 => (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.HandleFlagsEnumCategory.MakeGenericMethod(valueType).Invoke(null, [path2, config]));
+                            enumItem = new DataFeedCategory();
+                            enumItem.InitBase(key, path, groupingKeys, valueKey, descKey);
+                        }
+                        else
+                        {
+                            enumItem = (DataFeedItem)DataFeedHelpers.GenerateEnumItemsAsync.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
+                        }
                     }
                     catch (Exception e)
                     {
                         Plugin.Log.LogError(e);
-                        DataFeedValueField<dummy> dummyField = new DataFeedValueField<dummy>();
-                        dummyField.InitBase(key, path, groupingKeys, defaultKey, descKey);
-
-                        nullableEnumItems = dummyField.AsAsyncEnumerable();
+                        enumItem = new DataFeedValueField<dummy>();
+                        enumItem.InitBase(key, path, groupingKeys, defaultKey, descKey);
                     }
 
-                    await foreach (DataFeedItem item in nullableEnumItems)
-                    {
-                        yield return item;
-                    }
+                    yield return enumItem;
                 }
-            }
-            else
-            {
-                DataFeedItem valueItem;
-
-                try
+                else if (valueType.IsNullable())
                 {
-                    if (!config.SettingType.IsTypeInjectable() && TomlTypeConverter.CanConvert(config.SettingType))
+                    Type nullableType = valueType.GetGenericArguments()[0];
+                    if (nullableType.IsEnum)
                     {
-                        valueItem = DataFeedHelpers.GenerateProxyField(key, path, groupingKeys, internalLocale, config);
-                    }
-                    else
-                    {
-                        valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Plugin.Log.LogError(e);
-                    valueItem = new DataFeedValueField<dummy>();
-                    valueItem.InitBase(key, path, groupingKeys, defaultKey, descKey);
-                }
+                        IAsyncEnumerable<DataFeedItem> nullableEnumItems;
 
-                yield return valueItem;
+                        try
+                        {
+                            nullableEnumItems = (IAsyncEnumerable<DataFeedItem>)DataFeedHelpers.GenerateNullableEnumItemsAsync.MakeGenericMethod(nullableType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
+                        }
+                        catch (Exception e)
+                        {
+                            Plugin.Log.LogError(e);
+                            DataFeedValueField<dummy> dummyField = new DataFeedValueField<dummy>();
+                            dummyField.InitBase(key, path, groupingKeys, defaultKey, descKey);
+
+                            nullableEnumItems = dummyField.AsAsyncEnumerable();
+                        }
+
+                        await foreach (DataFeedItem item in nullableEnumItems)
+                        {
+                            yield return item;
+                        }
+                    }
+                }
+                else
+                {
+                    DataFeedItem valueItem;
+                    try
+                    {
+                        if (!config.SettingType.IsTypeInjectable() && TomlTypeConverter.CanConvert(config.SettingType))
+                        {
+                            valueItem = DataFeedHelpers.GenerateProxyField(key, path, groupingKeys, internalLocale, config);
+                        }
+                        else
+                        {
+                            valueItem = (DataFeedItem)DataFeedHelpers.GenerateValueField.MakeGenericMethod(valueType).Invoke(null, [key, path, groupingKeys, internalLocale, config]);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Plugin.Log.LogError(e);
+                        valueItem = new DataFeedValueField<dummy>();
+                        valueItem.InitBase(key, path, groupingKeys, defaultKey, descKey);
+                    }
+
+                    yield return valueItem;
+                }
             }
         }
 

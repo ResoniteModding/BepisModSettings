@@ -1,21 +1,21 @@
-﻿using BepInEx;
-using BepInEx.Logging;
-using BepInExResoniteShim;
-using Elements.Core;
-using FrooxEngine;
-using HarmonyLib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using BepInEx;
 using BepInEx.Configuration;
+using BepInEx.Logging;
 using BepInEx.NET.Common;
+using BepInExResoniteShim;
 using BepisLocaleLoader;
 using BepisModSettings.ConfigAttributes;
 using BepisModSettings.DataFeeds;
 using BepisResoniteWrapper;
+using Elements.Core;
+using FrooxEngine;
+using HarmonyLib;
 
 namespace BepisModSettings;
 
@@ -32,11 +32,14 @@ public class Plugin : BasePlugin
     public static ConfigEntry<bool> ShowHidden;
     public static ConfigEntry<bool> ShowProtected;
     public static ConfigEntry<bool> ShowEmptyPages;
+    public static ConfigEntry<bool> SortEmptyPages;
 
     internal static ConfigEntry<dummy> TestAction;
     internal static ConfigEntry<string> TestProtected;
     internal static ConfigEntry<string> TestHidden;
     internal static ConfigEntry<dummy> TestCustomDataFeed;
+
+    internal static ConfigEntry<dummy> OpenSettingsInspector;
 
     public override void Load()
     {
@@ -45,12 +48,16 @@ public class Plugin : BasePlugin
 
         ShowHidden = Config.Bind("General", "ShowHidden", false, new ConfigDescription("Whether to show hidden Configs", null, new ConfigLocale("Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden", "Settings.ResoniteModding.BepisModSettings.Configs.ShowHidden.Description")));
         ShowProtected = Config.Bind("General", "ShowProtected", false, "Whether to show protected Configs");
+
         ShowEmptyPages = Config.Bind("General", "ShowEmptyPages", true, "Whether to show category buttons for pages which would have no content");
+        SortEmptyPages = Config.Bind("General", "SortEmptyPages", true, "Whether to sort empty pages to the bottom o the list");
 
         TestAction = Config.Bind("Tests", "TestAction", default(dummy), new ConfigDescription("TestAction", null, new ActionConfig(() => Log.LogError("OneOfThem"))));
         TestProtected = Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));
         TestHidden = Config.Bind("Tests", "TestHidden", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestHidden", null, new HiddenConfig()));
         TestCustomDataFeed = Config.Bind("Tests", "TestCustomDataFeed", default(dummy), new ConfigDescription("TestCustomDataFeed", null, new CustomDataFeed(CustomDateFeedEnumerate)));
+
+        OpenSettingsInspector = Config.Bind("Debug", "OpenSettingsInspector", default(dummy), new ConfigDescription("OpenSettingsInspector", null, new HiddenConfig(), new ActionConfig(() => DataFeedHelpers.SettingsDataFeed?.Slot?.OpenInspectorForTarget())));
 
         HarmonyInstance.PatchAll();
 
@@ -71,9 +78,9 @@ public class Plugin : BasePlugin
 
             Engine.Current.OnShutdown += () =>
             {
-                Plugin.Log.LogInfo("Running shutdown, saving configs...");
+                Log.LogInfo("Running shutdown, saving configs...");
 
-                Plugin.Log.LogDebug("Saving Config for BepInEx.Core");
+                Log.LogDebug("Saving Config for BepInEx.Core");
                 ConfigFile.CoreConfig?.Save();
 
                 if (NetChainloader.Instance.Plugins.Count <= 0) return;
@@ -81,7 +88,7 @@ public class Plugin : BasePlugin
                 {
                     if (x.Instance is not BasePlugin plugin) return;
 
-                    Plugin.Log.LogDebug($"Saving Config for {x.Metadata.GUID}");
+                    Log.LogDebug($"Saving Config for {x.Metadata.GUID}");
                     plugin.Config?.Save();
                 });
             };
@@ -99,12 +106,14 @@ public class Plugin : BasePlugin
             try
             {
                 if (!path.Contains("BepInEx")) return __result;
+                if (!__instance.World.IsUserspace()) return DataFeedInjector.NotUserspaceEnumerable(path);
 
                 DataFeedHelpers.SettingsDataFeed = __instance;
+
                 // TODO: Find a way to do this non-destructively
                 // DataFeedHelpers.EnsureBetterInnerContainerItem();
 
-                return __instance.World.IsUserspace() ? DataFeedInjector.ReplaceEnumerable(__result, path) : DataFeedInjector.NotUserspaceEnumerator(path);
+                return DataFeedInjector.ReplaceEnumerable(__result, path);
             }
             catch (Exception ex)
             {
