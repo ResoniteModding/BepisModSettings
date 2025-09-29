@@ -100,7 +100,7 @@ public static class DataFeedHelpers
         await Task.CompletedTask;
 
         DataFeedGroup nullableEnumGroup = new DataFeedGroup();
-        nullableEnumGroup.InitBase($"{key}.NullableGroup", path, groupKeys, configKey.Definition.Key);
+        nullableEnumGroup.InitBase($"{key}.NullableGroup", path, groupKeys, internalLocale.Key);
         yield return nullableEnumGroup;
 
         string[] nullableGroupKeys = groupKeys.Concat([$"{key}..NullableGroup"]).ToArray();
@@ -113,7 +113,7 @@ public static class DataFeedHelpers
 
             if (slot.GetComponentInParents<FeedItemInterface>() is { } feedItemInterface)
             {
-                feedItemInterface.Slot.AttachComponent<Comment>().Text.Value = configKey.Definition.Key;
+                feedItemInterface.Slot.AttachComponent<Comment>().Text.Value = internalLocale.Key.content;
             }
 
             MethodInfo method = AccessTools.Method(typeof(DataFeedHelpers), nameof(SyncWithNullableConfigKeyHasValue)).MakeGenericMethod(configKey.SettingType);
