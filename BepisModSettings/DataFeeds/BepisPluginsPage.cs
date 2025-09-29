@@ -6,13 +6,13 @@ using BepInEx;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
 using BepisLocaleLoader;
+using BepisModSettings.ConfigAttributes;
 using Elements.Core;
 using FrooxEngine;
-using FrooxEngine.UIX;
 
 namespace BepisModSettings.DataFeeds;
 
-public static class BepisSettingsPage
+public static class BepisPluginsPage
 {
     public static event Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> CustomPluginsPages;
 
@@ -37,13 +37,13 @@ public static class BepisSettingsPage
 
             field.Value = SearchString;
             field.Changed += _ => SearchString = field.Value;
-            slot.GetComponentInParents<TextEditor>().LocalEditingFinished += _ => DataFeedHelpers.RefreshSettingsScreen();
+            slot.GetComponentInParents<TextEditor>().LocalEditingFinished += _ => DataFeedHelpers.RefreshSettingsScreen(slot.GetComponentInParents<RootCategoryView>());
         });
         yield return searchField;
 
-        DataFeedGroup plguinsGroup = new DataFeedGroup();
-        plguinsGroup.InitBase("BepInExPlugins", path, null, "Settings.BepInEx.Plugins".AsLocaleKey());
-        yield return plguinsGroup;
+        DataFeedGroup pluginsGroup = new DataFeedGroup();
+        pluginsGroup.InitBase("BepInExPlugins", path, null, "Settings.BepInEx.Plugins".AsLocaleKey());
+        yield return pluginsGroup;
 
         DataFeedGrid pluginsGrid = new DataFeedGrid();
         pluginsGrid.InitBase("PluginsGrid", path, ["BepInExPlugins"], "Settings.BepInEx.LoadedPlugins".AsLocaleKey());
@@ -61,16 +61,15 @@ public static class BepisSettingsPage
             {
                 foreach (PluginInfo pluginInfo in filteredPlugins)
                 {
-                    BepInPlugin pMetadata = MetadataHelper.GetMetadata(pluginInfo.Instance) ?? pluginInfo.Metadata;
-                    ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
+                    bool isEmpty = DataFeedHelpers.IsEmpty(pluginInfo.Instance);
 
-                    ModMeta metaData = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pMetadata.GUID, resonitePlugin?.Author, resonitePlugin?.Link);
+                    ModMeta metaData = pluginInfo.GetMetadata();
 
                     string pluginName = metaData.Name;
                     string pluginGuid = metaData.ID;
                     string pluginAuthor = metaData.Author;
 
-                    LocaleString nameKey = pluginName;
+                    LocaleString nameKey = isEmpty ? $"<color=#a8a8a8>{pluginName}</color>" : pluginName;
                     LocaleString description = $"{pluginName} ({metaData.Version}){(!string.IsNullOrEmpty(pluginAuthor) ? $"\nby \"{pluginAuthor}\"" : "")}\n\n{pluginGuid}";
 
                     if (LocaleLoader.PluginsWithLocales.Contains(pluginInfo))
@@ -83,8 +82,11 @@ public static class BepisSettingsPage
                         LocaleLoader.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", pluginName, authors: PluginMetadata.AUTHORS);
                     }
 
+                    if (isEmpty) nameKey = nameKey.SetFormat("<color=#a8a8a8>{0}</color>");
+
                     DataFeedCategory loadedPlugin = new DataFeedCategory();
                     loadedPlugin.InitBase(pluginGuid, path, loadedPluginsGroup, nameKey, description);
+                    if (Plugin.SortEmptyPages.Value && isEmpty) loadedPlugin.InitSorting(1);
                     yield return loadedPlugin;
                 }
             }
@@ -143,17 +145,14 @@ public static class BepisSettingsPage
         {
             if (!Plugin.ShowEmptyPages.Value)
             {
-                if (plugin.Instance is BasePlugin plug && plug.Config.Count == 0)
+                if (DataFeedHelpers.IsEmpty(plugin.Instance))
                     return false;
             }
 
             if (string.IsNullOrWhiteSpace(searchString))
                 return true;
 
-            BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin.Instance) ?? plugin.Metadata;
-            ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
-
-            ModMeta metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pMetadata.GUID, resonitePlugin?.Author, resonitePlugin?.Link);
+            ModMeta metadata = plugin.GetMetadata();
 
             if (metadata.Name.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
                 return true;

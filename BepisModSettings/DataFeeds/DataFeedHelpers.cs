@@ -14,7 +14,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using BepInEx;
 using BepInEx.Configuration;
+using BepInEx.NET.Common;
+using BepInExResoniteShim;
 using BepisModSettings.ConfigAttributes;
 using Elements.Assets;
 using Elements.Core;
@@ -343,7 +346,7 @@ public static class DataFeedHelpers
                         betterInnterInterfaceSlot.PersistentSelf = false;
 
                         betterInnterInterfaceSlot.FindChildInHierarchy("Button")?.Parent.Destroy();
-                        
+
                         FeedItemInterface injectedInnerContainerItem = betterInnterInterfaceSlot.GetComponent<FeedItemInterface>();
                         templatesRoot.ForeachComponentInChildren<FeedItemInterface>(interface2 =>
                         {
@@ -370,6 +373,48 @@ public static class DataFeedHelpers
             Plugin.Log.LogError($"Error in EnsureBetterInnerContainerItem: {e}");
         }
     }*/
+
+    public static bool IsEmpty(object instance) => instance is BasePlugin plug && IsEmpty(plug);
+    public static bool IsEmpty(BasePlugin plug) => plug.Config != null && IsEmpty(plug.Config);
+    public static bool IsEmpty(ConfigFile config) => config.Count == 0 || config.Values.All(configIn => !Plugin.ShowHidden.Value && HiddenConfig.IsHidden(configIn));
+    
+    public static bool DoesPluginExist(string pluginId) => NetChainloader.Instance.Plugins.ContainsKey(pluginId) || pluginId == "BepInEx.Core.Config";
+
+    public static ModMeta GetMetadata(this PluginInfo pluginInfo)
+    {
+        BepInPlugin metadata = MetadataHelper.GetMetadata(pluginInfo.Instance) ?? pluginInfo.Metadata;
+        ResonitePlugin resoPlugin = metadata as ResonitePlugin;
+
+        string assCo = resoPlugin?.Author;
+        string assUrl = resoPlugin?.Link;
+
+        if (pluginInfo.Instance is BasePlugin plug)
+        {
+            assCo ??= plug.GetType().Assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company;
+            assUrl ??= plug.GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key.Contains("url", StringComparison.CurrentCultureIgnoreCase))?.Value;
+        }
+
+        return new ModMeta(metadata.Name, metadata.Version.ToString(), metadata.GUID, assCo, assUrl);
+    }
+
+    public static bool TryGetPluginData(string pluginId, out ConfigFile config, out ModMeta meta)
+    {
+        config = null;
+        meta = default;
+
+        if (pluginId == "BepInEx.Core.Config")
+        {
+            config = ConfigFile.CoreConfig;
+            meta = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), "BepInEx.Core", "Bepis", "https://github.com/ResoniteModding/BepisLoader");
+        }
+        else if (NetChainloader.Instance.Plugins.TryGetValue(pluginId, out PluginInfo pluginInfo) && pluginInfo.Instance is BasePlugin plugin)
+        {
+            config = plugin.Config;
+            meta = pluginInfo.GetMetadata();
+        }
+
+        return config != null;
+    }
 
     public static async IAsyncEnumerable<DataFeedItem> AsAsyncEnumerable(this DataFeedItem item)
     {
@@ -546,14 +591,14 @@ public static class DataFeedHelpers
         }
     }
 
-    public static bool RefreshSettingsScreen()
+    public static bool RefreshSettingsScreen(RootCategoryView rcv = null)
     {
         if (_isUpdatingSettings) return false;
 
         try
         {
             _isUpdatingSettings = true;
-            RootCategoryView rcv = GetRootCategoryView();
+            rcv ??= GetRootCategoryView();
             if (rcv == null)
             {
                 _isUpdatingSettings = false;

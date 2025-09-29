@@ -1,19 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <Version>1.2.0</Version>
+        <Version>1.3.0</Version>
         <Authors>ResoniteModding</Authors>
         <TargetFramework>net9.0</TargetFramework>
         <Product>Bepis Mod Settings</Product>
         <RepositoryUrl>https://github.com/ResoniteModding/$(AssemblyName)</RepositoryUrl>
         <PackageId>ResoniteModding.$(AssemblyName)</PackageId>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <CopyToPlugins>false</CopyToPlugins>
+        <CopyToPlugins>true</CopyToPlugins>
         <ThunderstorePackable>true</ThunderstorePackable>
         <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
         <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
         <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
-        <PluginTargetDir>$(GamePath)BepInEx\plugins\$(AssemblyName)</PluginTargetDir>
+        <PluginTargetDir>$(GamePath)BepInEx\plugins\$(Authors)-$(AssemblyName)\$(AssemblyName)</PluginTargetDir>
         <RootNamespace>$(AssemblyName)</RootNamespace>
         <RestoreAdditionalProjectSources>
             https://nuget-modding.resonite.net/v3/index.json;

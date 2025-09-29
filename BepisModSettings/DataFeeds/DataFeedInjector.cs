@@ -13,13 +13,13 @@ public static class DataFeedInjector
         // Handle root category
         if (path.Count == 1)
         {
-            return BepisSettingsPage.Enumerate(path);
+            return BepisPluginsPage.Enumerate(path);
         }
 
         // Handle plugin configs page
         if (path.Count == 2)
         {
-            return BepisPluginPage.Enumerate(path);
+            return BepisConfigsPage.Enumerate(path);
         }
 
         // Handle nested category page
@@ -31,7 +31,7 @@ public static class DataFeedInjector
         return original;
     }
 
-    internal static async IAsyncEnumerable<DataFeedItem> NotUserspaceEnumerator(IReadOnlyList<string> path)
+    internal static async IAsyncEnumerable<DataFeedItem> NotUserspaceEnumerable(IReadOnlyList<string> path)
     {
         await Task.CompletedTask;
 
