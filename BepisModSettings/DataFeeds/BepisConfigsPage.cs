@@ -29,7 +29,7 @@ public static class BepisConfigsPage
 
         string pluginId = path[1];
 
-        if (NetChainloader.Instance.Plugins.Values.All(x => x.Metadata.GUID != pluginId) && pluginId != "BepInEx.Core.Config")
+        if (!DataFeedHelpers.DoesPluginExist(pluginId))
         {
             if (CustomPluginConfigsPages != null)
             {
@@ -47,28 +47,7 @@ public static class BepisConfigsPage
             yield break;
         }
 
-        ConfigFile configFile;
-        ModMeta metadata;
-
-        if (pluginId == "BepInEx.Core.Config")
-        {
-            configFile = ConfigFile.CoreConfig;
-            metadata = new ModMeta("BepInEx Core Config", Utility.BepInExVersion.ToString(), "BepInEx.Core", null, null);
-        }
-        else
-        {
-            PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
-            if (pluginInfo?.Instance is not BasePlugin plugin) yield break;
-
-            BepInPlugin pMetadata = MetadataHelper.GetMetadata(plugin);
-            ResonitePlugin resonitePlugin = pMetadata as ResonitePlugin;
-
-            string assCo = resonitePlugin?.Author ?? plugin.GetType().Assembly.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company;
-            string assUrl = resonitePlugin?.Link ?? plugin.GetType().Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key.Contains("url", StringComparison.CurrentCultureIgnoreCase))?.Value;
-
-            configFile = plugin.Config;
-            metadata = new ModMeta(pMetadata.Name, pMetadata.Version.ToString(), pluginId, assCo, assUrl);
-        }
+        if (!DataFeedHelpers.TryGetPluginData(pluginId, out ConfigFile configFile, out ModMeta metadata)) yield break;
 
         if (string.IsNullOrWhiteSpace(metadata.Name))
             metadata.Name = "<i>Unknown</i>";
@@ -77,7 +56,7 @@ public static class BepisConfigsPage
         if (string.IsNullOrWhiteSpace(metadata.ID))
             metadata.ID = "<i>Unknown</i>";
 
-        if (configFile.Count == 0 || !configFile.Values.Any(config => Plugin.ShowHidden.Value || !HiddenConfig.IsHidden(config)))
+        if (DataFeedHelpers.IsEmpty(configFile))
         {
             DataFeedLabel noConfigs = new DataFeedLabel();
             noConfigs.InitBase("NoConfigs", path, null, "Settings.BepInEx.Plugins.NoConfigs".AsLocaleKey());
@@ -117,13 +96,13 @@ public static class BepisConfigsPage
         versionIndicator.InitSetupValue(field => field.Value = metadata.Version);
         yield return versionIndicator;
 
-        if (!string.IsNullOrWhiteSpace(metadata.Link) && Uri.TryCreate(metadata.Link, UriKind.Absolute, out var uri))
+        if (!string.IsNullOrWhiteSpace(metadata.Link) && Uri.TryCreate(metadata.Link, UriKind.Absolute, out Uri uri))
         {
-            var modHyperlink = new DataFeedAction();
+            DataFeedAction modHyperlink = new DataFeedAction();
             modHyperlink.InitBase("Link", path, metadataGroup, "Settings.BepInEx.Plugins.ModPage".AsLocaleKey(), metadata.Link);
             modHyperlink.InitAction(syncDelegate =>
             {
-                var slot = syncDelegate?.Slot;
+                Slot slot = syncDelegate?.Slot;
                 if (slot == null) return;
 
                 slot.AttachComponent<Hyperlink>().URL.Value = uri;
@@ -167,6 +146,7 @@ public static class BepisConfigsPage
             {
                 string initKey = section + "." + config.Definition.Key;
                 string key = added.Contains(initKey) ? initKey + added.Count : initKey;
+                added.Add(key);
 
                 bool isHidden = HiddenConfig.IsHidden(config);
                 Type valueType = config.SettingType;
@@ -190,7 +170,7 @@ public static class BepisConfigsPage
                 if (isHidden) nameKey = nameKey.SetFormat("<color=hero.yellow>{0}</color>");
 
                 InternalLocale internalLocale = new InternalLocale(nameKey, descKey);
-                added.Add(key);
+
 
                 string[] groupingKeys = [section];
 
@@ -390,27 +370,19 @@ public static class BepisConfigsPage
     private static void LoadConfigs(string pluginId)
     {
         Plugin.Log.LogDebug($"Loading Configs for {pluginId}");
-        if (pluginId == "BepInEx.Core")
-        {
-            ConfigFile.CoreConfig.Reload();
-        }
-        else if (NetChainloader.Instance.Plugins.TryGetValue(pluginId, out var pluginInfo) && pluginInfo.Instance is BasePlugin plugin)
-        {
-            plugin.Config?.Reload();
-        }
+
+        if (!DataFeedHelpers.TryGetPluginData(pluginId, out ConfigFile configFile, out _)) return;
+
+        configFile.Reload();
     }
 
     private static void SaveConfigs(string pluginId)
     {
         Plugin.Log.LogDebug($"Saving Configs for {pluginId}");
-        if (pluginId == "BepInEx.Core")
-        {
-            ConfigFile.CoreConfig.Save();
-        }
-        else if (NetChainloader.Instance.Plugins.TryGetValue(pluginId, out var pluginInfo) && pluginInfo.Instance is BasePlugin plugin)
-        {
-            plugin.Config?.Save();
-        }
+
+        if (!DataFeedHelpers.TryGetPluginData(pluginId, out ConfigFile configFile, out _)) return;
+
+        configFile.Save();
     }
 
     private static bool _resetPressed;
@@ -443,22 +415,7 @@ public static class BepisConfigsPage
                 return;
             }
 
-            ConfigFile configFile;
-
-            if (pluginId != "BepInEx.Core.Config")
-            {
-                PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
-
-                if (pluginInfo?.Instance is not BasePlugin plugin) return;
-
-                configFile = plugin.Config;
-            }
-            else
-            {
-                configFile = ConfigFile.CoreConfig;
-            }
-
-            if (configFile == null) return;
+            if (!DataFeedHelpers.TryGetPluginData(pluginId, out ConfigFile configFile, out _)) return;
 
             foreach (ConfigEntryBase entry in configFile.Values)
             {
@@ -484,19 +441,15 @@ public static class BepisConfigsPage
     {
         try
         {
-            ConfigFile configFile;
+            ConfigFile configFile = null;
 
-            if (pluginId != "BepInEx.Core.Config")
-            {
-                PluginInfo pluginInfo = NetChainloader.Instance.Plugins.Values.FirstOrDefault(x => x.Metadata.GUID == pluginId);
-
-                if (pluginInfo?.Instance is not BasePlugin plugin) return;
-
-                configFile = plugin.Config;
-            }
-            else
+            if (pluginId == "BepInEx.Core.Config")
             {
                 configFile = ConfigFile.CoreConfig;
+            }
+            else if (NetChainloader.Instance.Plugins.TryGetValue(pluginId, out PluginInfo pluginInfo) && pluginInfo.Instance is BasePlugin plugin)
+            {
+                configFile = plugin.Config;
             }
 
             if (configFile == null) return;

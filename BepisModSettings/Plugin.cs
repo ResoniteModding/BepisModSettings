@@ -50,7 +50,7 @@ public class Plugin : BasePlugin
         ShowProtected = Config.Bind("General", "ShowProtected", false, "Whether to show protected Configs");
 
         ShowEmptyPages = Config.Bind("General", "ShowEmptyPages", true, "Whether to show category buttons for pages which would have no content");
-        SortEmptyPages = Config.Bind("General", "SortEmptyPages", true, "Whether to sort empty pages to the bottom o the list");
+        SortEmptyPages = Config.Bind("General", "SortEmptyPages", true, "Whether to sort empty pages to the bottom of the list");
 
         TestAction = Config.Bind("Tests", "TestAction", default(dummy), new ConfigDescription("TestAction", null, new ActionConfig(() => Log.LogError("OneOfThem"))));
         TestProtected = Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));
@@ -64,7 +64,7 @@ public class Plugin : BasePlugin
         ResoniteHooks.OnEngineReady += () =>
         {
             FieldInfo categoryField = AccessTools.Field(typeof(Settings), "_categoryInfos");
-            if (categoryField != null && categoryField.GetValue(null) is Dictionary<string, SettingCategoryInfo> categoryInfos)
+            if (categoryField?.GetValue(null) is Dictionary<string, SettingCategoryInfo> categoryInfos)
             {
                 SettingCategoryInfo bepInExCategory = new SettingCategoryInfo(new Uri("https://avatars.githubusercontent.com/u/39589027?s=200&v=4.png"), 99L);
                 bepInExCategory.InitKey("BepInEx");

@@ -18,17 +18,7 @@ public static class BepisNestedCategoryPage
 
         string pluginId = path[1];
 
-        if (BepisConfigsPage.CategoryHandlers.TryGetValue(path[^1], out Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> flagsHandler))
-        {
-            await foreach (DataFeedItem item in flagsHandler(path))
-            {
-                yield return item;
-            }
-
-            yield break;
-        }
-
-        if (NetChainloader.Instance.Plugins.Values.All(x => x.Metadata.GUID != pluginId) && pluginId != "BepInEx.Core.Config")
+        if (!DataFeedHelpers.DoesPluginExist(pluginId))
         {
             if (CustomNestedCategoryPages != null)
             {
@@ -41,6 +31,16 @@ public static class BepisNestedCategoryPage
                         yield return item;
                     }
                 }
+            }
+
+            yield break;
+        }
+
+        if (BepisConfigsPage.CategoryHandlers.TryGetValue(path[^1], out Func<IReadOnlyList<string>, IAsyncEnumerable<DataFeedItem>> flagsHandler))
+        {
+            await foreach (DataFeedItem item in flagsHandler(path))
+            {
+                yield return item;
             }
 
             yield break;
