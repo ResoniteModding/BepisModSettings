@@ -441,18 +441,7 @@ public static class BepisConfigsPage
     {
         try
         {
-            ConfigFile configFile = null;
-
-            if (pluginId == "BepInEx.Core.Config")
-            {
-                configFile = ConfigFile.CoreConfig;
-            }
-            else if (NetChainloader.Instance.Plugins.TryGetValue(pluginId, out PluginInfo pluginInfo) && pluginInfo.Instance is BasePlugin plugin)
-            {
-                configFile = plugin.Config;
-            }
-
-            if (configFile == null) return;
+            if (!DataFeedHelpers.TryGetPluginData(pluginId, out ConfigFile configFile, out _)) return;
 
             foreach (ConfigEntryBase entry in configFile.Values)
             {
