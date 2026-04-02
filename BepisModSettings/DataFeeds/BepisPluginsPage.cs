@@ -4,11 +4,13 @@ using System.Linq;
 using System.Threading.Tasks;
 using BepInEx;
 using BepInEx.NET.Common;
-using BepInExResoniteShim;
 using BepisLocaleLoader;
-using BepisModSettings.ConfigAttributes;
 using Elements.Core;
 using FrooxEngine;
+using FrooxEngine.UIX;
+using HarmonyLib;
+using ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Variables;
+using Renderite.Shared;
 
 namespace BepisModSettings.DataFeeds;
 
@@ -24,86 +26,204 @@ public static class BepisPluginsPage
 
         DataFeedGroup searchGroup = new DataFeedGroup();
         searchGroup.InitBase("SearchGroup", path, null, "Settings.BepInEx.Search".AsLocaleKey());
+        searchGroup.InitVisible(x =>
+        {
+            if (!x.TryFindClosestSlot(out Slot slot)) return;
+
+            Slot vert = slot.FindParent(p => p.Name == "Vertical Layout", 2);
+            if (vert == null) return;
+
+            vert.GetComponentOrAttach<DynamicVariableSpace>(d => d.SpaceName.Value == "BepInEx").SpaceName.Value = "BepInEx";
+        });
+        searchGroup.InitSlotName();
         yield return searchGroup;
 
         string[] searchGroupParam = ["SearchGroup"];
 
         DataFeedValueField<string> searchField = new DataFeedValueField<string>();
         searchField.InitBase("SearchField", path, searchGroupParam, "Settings.BepInEx.SearchField".AsLocaleKey());
+        searchField.InitSlotName();
         searchField.InitSetupValue(field =>
         {
-            Slot slot = field.FindNearestParent<Slot>();
-            if (slot == null) return;
+            if (!field.TryFindClosestSlot(out Slot slot)) return;
 
             field.Value = SearchString;
-            field.Changed += _ => SearchString = field.Value;
-            slot.GetComponentInParents<TextEditor>().LocalEditingFinished += _ => DataFeedHelpers.RefreshSettingsScreen(slot.GetComponentInParents<RootCategoryView>());
+            field.Changed += _ =>
+            {
+                SearchString = field.Value;
+                Search(slot);
+            };
+
+            slot.RunInUpdates(3, () => Search(slot));
+            return;
+
+            void Search(Slot initSlot)
+            {
+                Slot vert = initSlot.FindSpace("BepInEx")?.Slot;
+                if (vert == null || vert.ChildrenCount <= 0) return;
+
+                foreach (Slot child1 in vert.Children)
+                {
+                    Slot pluginsGrid = child1.FindChildInHierarchy("Grid");
+                    if (pluginsGrid == null || pluginsGrid.ChildrenCount <= 0) continue;
+
+                    bool noResults = true;
+                    foreach (Slot child in pluginsGrid.Children)
+                    {
+                        if (child.Name.Contains("NoSearchResults")) continue;
+
+                        DynamicVariableSpace space = child.GetComponent<DynamicVariableSpace>();
+                        if (space == null) continue;
+
+                        bool visible = ParseThing(space, SearchString);
+                        space.TryWriteValue("Visible", visible);
+                        if (visible)
+                        {
+                            noResults = false;
+                        }
+                    }
+
+                    pluginsGrid.FindChild(x => x.Name.Contains("NoSearchResults"))?.WriteDynamicVariable("Visible", noResults);
+                }
+                return;
+
+                bool ParseThing(DynamicVariableSpace space, string searchString)
+                {
+                    if (string.IsNullOrWhiteSpace(searchString))
+                        return true;
+
+                    if (space.TryReadValue("Name", out string name) && name.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
+                        return true;
+
+                    if (space.TryReadValue("ID", out string id) && id.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
+                        return true;
+
+                    if (space.TryReadValue("Version", out string version) && version.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
+                        return true;
+
+                    if (space.TryReadValue("Author", out string author) && !string.IsNullOrEmpty(author) && author.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
+                        return true;
+
+                    return false;
+                }
+            }
         });
         yield return searchField;
 
-        DataFeedGroup pluginsGroup = new DataFeedGroup();
-        pluginsGroup.InitBase("BepInExPlugins", path, null, "Settings.BepInEx.Plugins".AsLocaleKey());
+        DataFeedResettableGroup pluginsGroup = new DataFeedResettableGroup();
+        pluginsGroup.InitBase("BepInExPlugins", path, null, "Settings.BepInEx.Plugins".AsLocaleKey(), new Uri("https://avatars.githubusercontent.com/u/39589027?s=200&v=4.png"));
+        pluginsGroup.InitSlotName();
+        pluginsGroup.InitResetAction(x =>
+        {
+            if (!x.TryFindClosestSlot(out Slot slot)) return;
+
+            BooleanValueDriver<string> bvd = slot.GetComponentInChildren<Text>().Slot.GetComponent<BooleanValueDriver<string>>();
+            bvd.FalseValue.Value = "Settings.BepInEx.SaveAll";
+
+            if (bvd.Slot.Parent.Parent.GetComponentInChildren<Image>() is { } img)
+            {
+                SpriteProvider spr = img.Slot.AttachComponent<SpriteProvider>();
+                spr.Texture.Target = img.Slot.AttachTexture(new Uri("resdb:///2f5cc6b6d4249bfdceda48fcd3df6375d47d13614e2100a8ed5a0f511ea9c01e.webp"), wrapMode: TextureWrapMode.Clamp);
+                img.Sprite.Target = spr;
+            }
+
+            if (slot.GetComponent<Button>() is not { } btn) return;
+            btn.LocalPressed += (b, _) =>
+            {
+                Slot resetBtn = b.Slot.FindParent(x2 => x2.Name == "Reset Button");
+                DataModelValueFieldStore<bool>.Store store = resetBtn?.GetComponentInChildren<DataModelValueFieldStore<bool>.Store>();
+                if (store == null) return;
+
+                if (!store.Value.Value || NetChainloader.Instance.Plugins.Count == 0) return;
+
+                Plugin.Log.LogDebug($"Saving All Configs");
+                NetChainloader.Instance.Plugins.Values.Do(x3 => (x3.Instance as BasePlugin)?.Config?.Save());
+            };
+        });
         yield return pluginsGroup;
 
         DataFeedGrid pluginsGrid = new DataFeedGrid();
         pluginsGrid.InitBase("PluginsGrid", path, ["BepInExPlugins"], "Settings.BepInEx.LoadedPlugins".AsLocaleKey());
+        pluginsGrid.InitSlotName();
         yield return pluginsGrid;
 
         string[] loadedPluginsGroup = ["BepInExPlugins", "PluginsGrid"];
 
-        if (NetChainloader.Instance.Plugins.Count > 0)
+        List<(PluginInfo Plugin, bool IsEmpty)> plugins = NetChainloader.Instance.Plugins.Values.Select(plugin => (Plugin: plugin, IsEmpty: DataFeedHelpers.IsEmpty(plugin.Instance))).Where(x => !x.IsEmpty || Plugin.ShowEmptyPages.Value).OrderBy(x => x.Plugin.Metadata.Name, StringComparer.OrdinalIgnoreCase).ToList();
+
+        if (plugins.Count == 0)
         {
-            List<PluginInfo> sortedPlugins = new List<PluginInfo>(NetChainloader.Instance.Plugins.Values);
-            sortedPlugins.Sort((a, b) => string.Compare(a.Metadata.Name, b.Metadata.Name, StringComparison.OrdinalIgnoreCase));
-
-            List<PluginInfo> filteredPlugins = FilterPlugins(sortedPlugins, SearchString).ToList();
-            if (filteredPlugins.Count > 0)
-            {
-                foreach (PluginInfo pluginInfo in filteredPlugins)
-                {
-                    bool isEmpty = DataFeedHelpers.IsEmpty(pluginInfo.Instance);
-
-                    ModMeta metaData = pluginInfo.GetMetadata();
-
-                    string pluginName = metaData.Name;
-                    string pluginGuid = metaData.ID;
-                    string pluginAuthor = metaData.Author;
-
-                    LocaleString nameKey = isEmpty ? $"<color=#a8a8a8>{pluginName}</color>" : pluginName;
-                    LocaleString description = $"{pluginName} ({metaData.Version}){(!string.IsNullOrEmpty(pluginAuthor) ? $"\nby \"{pluginAuthor}\"" : "")}\n\n{pluginGuid}";
-
-                    if (LocaleLoader.PluginsWithLocales.Contains(pluginInfo))
-                    {
-                        nameKey = $"Settings.{pluginGuid}".AsLocaleKey();
-                        description = $"Settings.{pluginGuid}.Description".AsLocaleKey();
-                    }
-                    else
-                    {
-                        LocaleLoader.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", pluginName, authors: PluginMetadata.AUTHORS);
-                    }
-
-                    if (isEmpty) nameKey = nameKey.SetFormat("<color=#a8a8a8>{0}</color>");
-
-                    DataFeedCategory loadedPlugin = new DataFeedCategory();
-                    loadedPlugin.InitBase(pluginGuid, path, loadedPluginsGroup, nameKey, description);
-                    if (Plugin.SortEmptyPages.Value && isEmpty) loadedPlugin.InitSorting(1);
-                    yield return loadedPlugin;
-                }
-            }
-            else if (!string.IsNullOrWhiteSpace(SearchString))
-            {
-                DataFeedLabel noResults = new DataFeedLabel();
-                noResults.InitBase("NoSearchResults", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoSearchResults".AsLocaleKey());
-                yield return noResults;
-            }
-            else
-            {
-                yield return CreateNoPluginsLabel(path, loadedPluginsGroup);
-            }
+            DataFeedLabel noPlugins = new DataFeedLabel();
+            noPlugins.InitBase("NoPlugins", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoPlugins".AsLocaleKey());
+            noPlugins.InitSlotName();
+            yield return noPlugins;
         }
         else
         {
-            yield return CreateNoPluginsLabel(path, loadedPluginsGroup);
+            foreach ((PluginInfo pluginInfo, bool isEmpty) in plugins)
+            {
+                ModMeta metaData = pluginInfo.GetMetadata();
+
+                string pluginName = metaData.Name;
+                string pluginGuid = metaData.ID;
+                string pluginAuthor = metaData.Author;
+                string pluginVersion = metaData.Version;
+
+                LocaleString nameKey = pluginName;
+                LocaleString descriptionKey = $"{pluginName} ({pluginVersion}){(!string.IsNullOrEmpty(pluginAuthor) ? $"\nby \"{pluginAuthor}\"" : "")}\n\n{pluginGuid}";
+                string resolvedDescription = descriptionKey.ToString();
+
+                if (LocaleLoader.PluginsWithLocales.Contains(pluginInfo))
+                {
+                    nameKey = $"Settings.{pluginGuid}".AsLocaleKey();
+                    descriptionKey = $"Settings.{pluginGuid}.Description".AsLocaleKey();
+                    resolvedDescription = descriptionKey.content.GetFormattedLocaleString();
+                }
+                else
+                {
+                    LocaleLoader.AddLocaleString($"Settings.{pluginGuid}.Breadcrumb", pluginName, authors: PluginMetadata.AUTHORS);
+                }
+
+                if (isEmpty)
+                {
+                    nameKey = nameKey.SetFormat("<color=#a8a8a8>{0}</color>");
+                }
+
+                DataFeedCategory loadedPlugin = new DataFeedCategory();
+                loadedPlugin.InitBase(pluginGuid, path, loadedPluginsGroup, nameKey, descriptionKey);
+                loadedPlugin.InitVisible(x =>
+                {
+                    if (!x.TryFindClosestSlot(out Slot slot)) return;
+
+                    EnsureSpace(slot, DynamicVariableHelper.ProcessName(pluginGuid));
+                    CreateDynField(slot, "Visible", x);
+
+                    CreateValVar(slot, "Name", pluginName);
+                    CreateValVar(slot, "Description", resolvedDescription);
+                    CreateValVar(slot, "ID", pluginGuid);
+                    CreateValVar(slot, "Version", pluginVersion);
+                    CreateValVar(slot, "Author", pluginAuthor);
+                });
+
+                if (Plugin.SortEmptyPages.Value && isEmpty) loadedPlugin.InitSorting(1);
+                yield return loadedPlugin;
+            }
+
+            DataFeedLabel noResults = new DataFeedLabel();
+            noResults.InitBase("NoSearchResults", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoSearchResults".AsLocaleKey());
+            noResults.InitVisible(x =>
+            {
+                x.Value = false;
+
+                if (!x.TryFindClosestSlot(out Slot slot)) return;
+
+                EnsureSpace(slot, DynamicVariableHelper.ProcessName(noResults.ItemKey));
+                CreateDynField(slot, "Visible", x);
+
+                CreateValVar(slot, "Name", noResults.ItemKey);
+            });
+            noResults.InitSlotName();
+            yield return noResults;
         }
 
         if (CustomPluginsPages != null)
@@ -121,52 +241,34 @@ public static class BepisPluginsPage
 
         DataFeedGroup coreGroup = new DataFeedGroup();
         coreGroup.InitBase("BepInExCore", path, null, "Settings.BepInEx.Core".AsLocaleKey());
+        coreGroup.InitSlotName();
         yield return coreGroup;
 
         string[] coreGroupParam = ["BepInExCore"];
 
         DataFeedCategory bepisCategory = new DataFeedCategory();
         bepisCategory.InitBase("BepInEx.Core.Config", path, coreGroupParam, "Settings.BepInEx.Core.Config".AsLocaleKey());
+        bepisCategory.InitSlotName();
         yield return bepisCategory;
-    }
 
-    private static DataFeedLabel CreateNoPluginsLabel(IReadOnlyList<string> path, string[] loadedPluginsGroup)
-    {
-        DataFeedLabel noPlugins = new DataFeedLabel();
-        noPlugins.InitBase("NoPlugins", path, loadedPluginsGroup, "Settings.BepInEx.Plugins.NoPlugins".AsLocaleKey());
-        return noPlugins;
-    }
-
-    private static IEnumerable<PluginInfo> FilterPlugins(List<PluginInfo> plugins, string searchString)
-    {
-        searchString = searchString.Trim();
-
-        return plugins.Where(plugin =>
+        void EnsureSpace(Slot slot, string spaceName)
         {
-            if (!Plugin.ShowEmptyPages.Value)
-            {
-                if (DataFeedHelpers.IsEmpty(plugin.Instance))
-                    return false;
-            }
+            DynamicVariableSpace space = slot.GetComponentOrAttach<DynamicVariableSpace>(d => d.SpaceName.Value == spaceName);
+            space.SpaceName.Value = spaceName;
+        }
 
-            if (string.IsNullOrWhiteSpace(searchString))
-                return true;
+        void CreateDynField<T>(Slot slot, string name, IField<T> value)
+        {
+            DynamicField<T> dynField = slot.GetComponentOrAttach<DynamicField<T>>(d => d.VariableName.Value == name);
+            dynField.VariableName.Value = name;
+            dynField.TargetField.Target = value;
+        }
 
-            ModMeta metadata = plugin.GetMetadata();
-
-            if (metadata.Name.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
-                return true;
-
-            if (metadata.ID.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
-                return true;
-
-            if (metadata.Version.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
-                return true;
-
-            if (!string.IsNullOrEmpty(metadata.Author) && metadata.Author.Contains(searchString, StringComparison.InvariantCultureIgnoreCase))
-                return true;
-
-            return false;
-        });
+        void CreateValVar<T>(Slot slot, string name, T value)
+        {
+            DynamicValueVariable<T> valueVariable = slot.GetComponentOrAttach<DynamicValueVariable<T>>(d => d.VariableName.Value == name);
+            valueVariable.VariableName.Value = name;
+            valueVariable.Value.Value = value;
+        }
     }
 }

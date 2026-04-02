@@ -18,6 +18,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.NET.Common;
 using BepInExResoniteShim;
+using BepisLocaleLoader;
 using BepisModSettings.ConfigAttributes;
 using Elements.Assets;
 using Elements.Core;
@@ -58,26 +59,41 @@ public static class DataFeedHelpers
         return toggle;
     }
 
-    internal static DataFeedValueField<T> GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
+    internal static DataFeedItem GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
     {
-        DataFeedValueField<T> valueField = new DataFeedValueField<T>();
-        valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
-        valueField.InitSetupValue(field =>
-        {
-            if (!Plugin.ShowProtected.Value && ProtectedConfig.GetMask(configKey) is string mask)
-            {
-                TextField textField = field.FindNearestParent<Slot>().FindParent(x => x.Name == "DataFeedValueField<string>", 5).GetComponentInChildren<TextField>();
-                textField.Text.ParseRichText.Value = false;
-                textField.Editor.Target.Undo.Value = false;
-                textField.Text.MaskPattern.Value = mask;
-            }
-
-            field.SyncWithConfigKey(configKey);
-        });
-
         TryInjectNewTemplateType(configKey.SettingType);
 
-        return valueField;
+        DataFeedItem value;
+
+        if (configKey.Description.Tags.FirstOrDefault(x => x is RangeAttribute) is RangeAttribute rangeAttribute)
+        {
+            DataFeedSlider<T> slider = new DataFeedSlider<T>();
+            slider.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
+            slider.InitSetup(field => { field.SyncWithConfigKey(configKey); }, min => min.BoxedValue = rangeAttribute.Min, max => max.BoxedValue = rangeAttribute.Max);
+
+            value = slider;
+        }
+        else
+        {
+            DataFeedValueField<T> valueField = new DataFeedValueField<T>();
+            valueField.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
+            valueField.InitSetupValue(field =>
+            {
+                if (!Plugin.ShowProtected.Value && ProtectedConfig.GetMask(configKey) is { } mask)
+                {
+                    TextField textField = field.FindNearestParent<Slot>().FindParent(x => x.Name == "DataFeedValueField<string>", 5).GetComponentInChildren<TextField>();
+                    textField.Text.ParseRichText.Value = false;
+                    textField.Editor.Target.Undo.Value = false;
+                    textField.Text.MaskPattern.Value = mask;
+                }
+
+                field.SyncWithConfigKey(configKey);
+            });
+
+            value = valueField;
+        }
+
+        return value;
     }
 
     internal static DataFeedValueField<string> GenerateProxyField(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
@@ -94,8 +110,7 @@ public static class DataFeedHelpers
         return valueField;
     }
 
-    private static async IAsyncEnumerable<DataFeedItem> GenerateNullableEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
-            where T : unmanaged, Enum
+    private static async IAsyncEnumerable<DataFeedItem> GenerateNullableEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey) where T : unmanaged, Enum
     {
         await Task.CompletedTask;
 
@@ -189,8 +204,7 @@ public static class DataFeedHelpers
         }
     }
 
-    private static DataFeedEnum<T> GenerateEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
-            where T : unmanaged, Enum
+    private static DataFeedEnum<T> GenerateEnumItemsAsyncMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey) where T : unmanaged, Enum
     {
         DataFeedEnum<T> enumField = new DataFeedEnum<T>();
         enumField.InitBase($"{key}.Enum", path, groupKeys, internalLocale.Key, internalLocale.Description);
@@ -199,8 +213,7 @@ public static class DataFeedHelpers
         return enumField;
     }
 
-    private static void SyncWithNullableConfigKeyHasValue<T>(this IField<bool> field, ConfigEntryBase configKey)
-            where T : struct
+    private static void SyncWithNullableConfigKeyHasValue<T>(this IField<bool> field, ConfigEntryBase configKey) where T : struct
     {
         object value = configKey.BoxedValue;
         field.Value = ((T?)value).HasValue;
@@ -296,9 +309,7 @@ public static class DataFeedHelpers
                     }
 
                     long current = Convert.ToInt64(configKey.BoxedValue ?? default(T));
-                    long newValue = field.Value
-                            ? current | intValue
-                            : current & ~intValue;
+                    long newValue = field.Value ? current | intValue : current & ~intValue;
                     configKey.BoxedValue = Enum.ToObject(enumType, newValue);
 
                     field.World.RunSynchronously(() => { field.Value = ((T)(configKey.BoxedValue ?? default(T)!)).HasFlag(e); });
@@ -324,7 +335,6 @@ public static class DataFeedHelpers
         }
     }
 
-    // TODO: find a better way of doing this non-destructively
     /*internal static void EnsureBetterInnerContainerItem()
     {
         try
@@ -332,22 +342,26 @@ public static class DataFeedHelpers
             Slot templatesRoot = Mapper.Slot.Parent?.FindChild("Templates");
             if (templatesRoot == null) return;
 
-            Slot betterInnterInterfaceSlot = templatesRoot.FindChild("Injected - InnerContainerItem");
-            if (betterInnterInterfaceSlot == null)
+            Slot betterInnerInterfaceSlot = templatesRoot.FindChild("Injected - InnerContainerItem");
+            if (betterInnerInterfaceSlot == null)
             {
+                TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
                 templatesRoot.RunSynchronously(() =>
                 {
-                    Slot innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
-                    if (innerInterfaceSlot != null)
+                    try
                     {
-                        betterInnterInterfaceSlot = innerInterfaceSlot.Duplicate();
-                        betterInnterInterfaceSlot.Name = "Injected - InnerContainerItem";
-                        betterInnterInterfaceSlot.ActiveSelf = false;
-                        betterInnterInterfaceSlot.PersistentSelf = false;
+                        Slot innerInterfaceSlot = templatesRoot.FindChild("InnerContainerItem");
 
-                        betterInnterInterfaceSlot.FindChildInHierarchy("Button")?.Parent.Destroy();
+                        ArgumentNullException.ThrowIfNull(innerInterfaceSlot, "InnerContainerItem slot is null in EnsureBetterInnerContainerItem!");
 
-                        FeedItemInterface injectedInnerContainerItem = betterInnterInterfaceSlot.GetComponent<FeedItemInterface>();
+                        betterInnerInterfaceSlot = innerInterfaceSlot.Duplicate();
+                        betterInnerInterfaceSlot.Name = "Injected - InnerContainerItem";
+                        betterInnerInterfaceSlot.ActiveSelf = false;
+                        betterInnerInterfaceSlot.PersistentSelf = false;
+
+                        betterInnerInterfaceSlot.FindChildInHierarchy("Button")?.Parent.Destroy();
+
+                        FeedItemInterface injectedInnerContainerItem = betterInnerInterfaceSlot.GetComponent<FeedItemInterface>();
                         templatesRoot.ForeachComponentInChildren<FeedItemInterface>(interface2 =>
                         {
                             if (interface2 == null) return;
@@ -355,18 +369,18 @@ public static class DataFeedHelpers
 
                             interface2.ParentContainer.Target = injectedInnerContainerItem;
                         });
+
+                        tcs.SetResult(true);
                     }
-                    else
+                    catch (Exception e)
                     {
-                        Plugin.Log.LogError("InnerContainerItem slot is null in EnsureBetterInnerContainerItem!");
+                        tcs.SetException(e);
                     }
                 });
+                tcs.Task.Wait();
             }
 
-            while (templatesRoot.FindChild("Injected - InnerContainerItem") == null)
-            {
-                Task.Delay(10).Wait();
-            }
+            if (templatesRoot.FindChild("Injected - InnerContainerItem") == null) throw new Exception("Could not find Injected - InnerContainerItem slot in DoInject!");
         }
         catch (Exception e)
         {
@@ -377,7 +391,7 @@ public static class DataFeedHelpers
     public static bool IsEmpty(object instance) => instance is BasePlugin plug && IsEmpty(plug);
     public static bool IsEmpty(BasePlugin plug) => plug.Config != null && IsEmpty(plug.Config);
     public static bool IsEmpty(ConfigFile config) => config.Count == 0 || config.Values.All(configIn => !Plugin.ShowHidden.Value && HiddenConfig.IsHidden(configIn));
-    
+
     public static bool DoesPluginExist(string pluginId) => NetChainloader.Instance.Plugins.ContainsKey(pluginId) || pluginId == "BepInEx.Core.Config";
 
     public static ModMeta GetMetadata(this PluginInfo pluginInfo)
@@ -427,10 +441,31 @@ public static class DataFeedHelpers
 
     public static bool TryInjectNewTemplateType(Type typeToInject)
     {
-        if (!typeToInject.IsTypeInjectable() || SettingsDataFeed == null) return false;
+        try
+        {
+            if (!typeToInject.IsTypeInjectable() || SettingsDataFeed == null) return false;
 
-        SettingsDataFeed.Slot.RunSynchronously(() => InjectNewTemplateType(typeToInject));
-        return true;
+            TaskCompletionSource<bool> tcs = new TaskCompletionSource<bool>();
+            SettingsDataFeed.Slot.RunSynchronously(() =>
+            {
+                try
+                {
+                    InjectNewTemplateType(typeToInject);
+                    tcs.SetResult(true);
+                }
+                catch (Exception e)
+                {
+                    tcs.SetException(e);
+                }
+            });
+
+            return tcs.Task.GetAwaiter().GetResult();
+        }
+        catch (Exception e)
+        {
+            Plugin.Log.LogError($"Error in TryInjectNewTemplateType: {e}");
+            return false;
+        }
     }
 
     private static void InjectNewTemplateType(Type typeToInject)
@@ -548,6 +583,31 @@ public static class DataFeedHelpers
         {
             Plugin.Log.LogError("Could not find Templates slot in DoInject!");
         }
+    }
+
+    public static void InitSlotName(this DataFeedItem item)
+    {
+        if (item.SetupEnabled == null)
+        {
+            item.InitEnabled(InitField);
+        }
+        else if (item.SetupVisible == null)
+        {
+            item.InitVisible(InitField);
+        }
+        return;
+
+        void InitField(IField<bool> field)
+        {
+            if (!field.TryFindClosestSlot(out Slot slot)) return;
+            slot.Name = item.ItemKey;
+        }
+    }
+
+    public static bool TryFindClosestSlot(this IWorldElement element, out Slot slot)
+    {
+        slot = element?.FindNearestParent<Slot>();
+        return slot != null;
     }
 
     private static bool _isUpdatingSettings;

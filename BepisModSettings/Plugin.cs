@@ -21,7 +21,7 @@ namespace BepisModSettings;
 
 [ResonitePlugin(PluginMetadata.GUID, PluginMetadata.NAME, PluginMetadata.VERSION, PluginMetadata.AUTHORS, PluginMetadata.REPOSITORY_URL)]
 [BepInDependency(BepInExResoniteShim.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
-[BepInDependency(BepisLocaleLoader.PluginMetadata.GUID, BepInDependency.DependencyFlags.HardDependency)]
+[BepInDependency(BepisLocaleLoader.Plugin.GUID, BepInDependency.DependencyFlags.HardDependency)]
 public class Plugin : BasePlugin
 {
     internal new static ManualLogSource Log;
@@ -38,6 +38,7 @@ public class Plugin : BasePlugin
     internal static ConfigEntry<string> TestProtected;
     internal static ConfigEntry<string> TestHidden;
     internal static ConfigEntry<dummy> TestCustomDataFeed;
+    internal static ConfigEntry<float> TestRangeFloat;
 
     internal static ConfigEntry<dummy> OpenSettingsInspector;
 
@@ -56,6 +57,7 @@ public class Plugin : BasePlugin
         TestProtected = Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));
         TestHidden = Config.Bind("Tests", "TestHidden", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestHidden", null, new HiddenConfig()));
         TestCustomDataFeed = Config.Bind("Tests", "TestCustomDataFeed", default(dummy), new ConfigDescription("TestCustomDataFeed", null, new CustomDataFeed(CustomDateFeedEnumerate)));
+        TestRangeFloat = Config.Bind("Tests", "TestRangeFloat", 0.5f, new ConfigDescription("TestRangeFloat", null, new RangeAttribute(0f, 1f)));
 
         OpenSettingsInspector = Config.Bind("Debug", "OpenSettingsInspector", default(dummy), new ConfigDescription("OpenSettingsInspector", null, new HiddenConfig(), new ActionConfig(() => DataFeedHelpers.SettingsDataFeed?.Slot?.OpenInspectorForTarget())));
 
@@ -75,26 +77,31 @@ public class Plugin : BasePlugin
             {
                 Log.LogError("Failed to find _categoryInfos field in Settings.");
             }
-
-            Engine.Current.OnShutdown += () =>
-            {
-                Log.LogInfo("Running shutdown, saving configs...");
-
-                Log.LogDebug("Saving Config for BepInEx.Core");
-                ConfigFile.CoreConfig?.Save();
-
-                if (NetChainloader.Instance.Plugins.Count <= 0) return;
-                NetChainloader.Instance.Plugins.Values.Do(x =>
-                {
-                    if (x.Instance is not BasePlugin plugin) return;
-
-                    Log.LogDebug($"Saving Config for {x.Metadata.GUID}");
-                    plugin.Config?.Save();
-                });
-            };
         };
 
         Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
+    }
+
+    [HarmonyPatch(typeof(Engine), nameof(Engine.RequestShutdown))]
+    public static class RequestShutdownPatch
+    {
+        public static void Prefix()
+        {
+            Log.LogInfo("Running shutdown, saving configs...");
+
+            Log.LogDebug("Saving Config for BepInEx.Core");
+            ConfigFile.CoreConfig?.Save();
+
+            if (NetChainloader.Instance.Plugins.Count <= 0) return;
+            NetChainloader.Instance.Plugins.Values.Do(x =>
+            {
+                if (x.Instance is not BasePlugin plugin) return;
+
+                Log.LogDebug($"Saving Config for {x.Metadata.GUID}");
+                plugin.Config?.Save();
+            });
+            Log.LogInfo("Configs Saved!");
+        }
     }
 
     [HarmonyPatch(typeof(SettingsDataFeed), nameof(SettingsDataFeed.Enumerate), new Type[] { typeof(IReadOnlyList<string>), typeof(IReadOnlyList<string>), typeof(string), typeof(object) })]

@@ -48,6 +48,7 @@ public static class BepisNestedCategoryPage
 
         DataFeedLabel invalidCategory = new DataFeedLabel();
         invalidCategory.InitBase("InvalidCategory", path, null, "Settings.BepInEx.Plugins.Error".AsLocaleKey());
+        invalidCategory.InitSlotName();
         yield return invalidCategory;
     }
 }

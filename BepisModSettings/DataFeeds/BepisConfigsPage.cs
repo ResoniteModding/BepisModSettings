@@ -152,7 +152,8 @@ public static class BepisConfigsPage
                 Type valueType = config.SettingType;
 
                 LocaleString nameKey = isHidden ? $"<color=hero.yellow>{config.Definition.Key}</color>" : config.Definition.Key;
-                LocaleString descKey = config.Description.Description;
+                LocaleString descKey = $"{config.Description.Description}\n\nDefault: {config.DefaultValue ?? "Null"}";
+                LocaleString descKey2 = $"{config.Description.Description}";
                 LocaleString defaultKey = $"{config.Definition.Key} : {valueType}";
                 LocaleString valueKey = $"{config.Definition.Key} : {config.BoxedValue}";
 
@@ -161,6 +162,7 @@ public static class BepisConfigsPage
                 {
                     nameKey = localeString.Name;
                     descKey = localeString.Description;
+                    descKey2 = localeString.Description;
 
                     string formatted = localeString.Name.content.GetFormattedLocaleString();
                     defaultKey = $"{formatted} : {valueType}";
@@ -168,14 +170,11 @@ public static class BepisConfigsPage
                 }
 
                 if (isHidden) nameKey = nameKey.SetFormat("<color=hero.yellow>{0}</color>");
+                descKey = descKey.SetFormat("{0}\n\nDefault: " + config.DefaultValue ?? "Null");
 
                 InternalLocale internalLocale = new InternalLocale(nameKey, descKey);
 
-
                 string[] groupingKeys = [section];
-
-                // Keep your existing valueType logic here (dummy, bool, enum, nullable, etc.)
-                // unchanged, just moved inside the sectionGroup loop
 
                 if (valueType == typeof(dummy))
                 {
@@ -201,7 +200,7 @@ public static class BepisConfigsPage
                     }
 
                     bool customUi = false;
-                    if (CustomDataFeed.GetCustomFeedMethod(config) is DataFeedMethod customDataFeed)
+                    if (CustomDataFeed.GetCustomFeedMethod(config) is { } customDataFeed)
                     {
                         customUi = true;
                         IAsyncEnumerable<DataFeedItem> datafeed = customDataFeed(path, groupingKeys);
@@ -213,8 +212,13 @@ public static class BepisConfigsPage
 
                     if (dummyField == null && !customUi)
                     {
-                        dummyField = new DataFeedValueField<dummy>();
-                        dummyField.InitBase(key, path, groupingKeys, nameKey, descKey);
+                        DataFeedIndicator<string> indi = new DataFeedIndicator<string>();
+                        indi.InitBase(key, path, groupingKeys, nameKey, descKey2);
+                        indi.InitSetupValue(x =>
+                        {
+                            x.Value = descKey2.content.GetFormattedLocaleString();
+                        });
+                        dummyField = indi;
                     }
 
                     if (!customUi)

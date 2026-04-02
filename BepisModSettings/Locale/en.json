@@ -11,6 +11,8 @@
     
     "Settings.BepInEx.Search": "Search",
     "Settings.BepInEx.SearchField": "Search Field",
+
+    "Settings.BepInEx.SaveAll": "Save All",
     
     "Settings.BepInEx.Warning": "Warning",
     "Settings.BepInEx.NotUserspace": "This menu is only available in userspace!",
