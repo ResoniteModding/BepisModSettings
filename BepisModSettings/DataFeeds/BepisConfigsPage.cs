@@ -219,7 +219,7 @@ public static class BepisConfigsPage
                 }
 
                 if (isHidden) nameKey = nameKey.SetFormat("<color=hero.yellow>{0}</color>");
-                descKey = descKey.SetFormat("{0}\n\nDefault: " + (string.IsNullOrEmpty(config.DefaultValue.ToString()) ? "Null" : config.DefaultValue.ToString()));
+                descKey = descKey.SetFormat("{0}\n\nDefault: " + (string.IsNullOrEmpty(config.DefaultValue?.ToString()) ? "Null" : config.DefaultValue?.ToString()));
 
                 InternalLocale internalLocale = new InternalLocale(nameKey, descKey);
 
