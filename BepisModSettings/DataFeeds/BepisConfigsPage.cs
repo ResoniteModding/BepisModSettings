@@ -201,7 +201,7 @@ public static class BepisConfigsPage
                 Type valueType = config.SettingType;
 
                 LocaleString nameKey = isHidden ? $"<color=hero.yellow>{config.Definition.Key}</color>" : config.Definition.Key;
-                LocaleString descKey = $"{config.Description.Description}\n\nDefault: {(string.IsNullOrEmpty(config.DefaultValue.ToString()) ? "Null" : config.DefaultValue.ToString())}";
+                LocaleString descKey = $"{config.Description.Description}\n\nDefault: {(string.IsNullOrEmpty(config.DefaultValue?.ToString()) ? "Null" : config.DefaultValue?.ToString())}";
                 LocaleString descKey2 = $"{config.Description.Description}";
                 LocaleString defaultKey = $"{config.Definition.Key} : {valueType.GetNiceName()}";
                 LocaleString valueKey = $"{config.Definition.Key} : {config.BoxedValue}";
