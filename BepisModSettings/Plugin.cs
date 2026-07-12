@@ -31,16 +31,12 @@ public class Plugin : BasePlugin
 
     public static ConfigEntry<bool> ShowHidden;
     public static ConfigEntry<bool> ShowProtected;
+
     public static ConfigEntry<bool> ShowEmptyPages;
     public static ConfigEntry<bool> SortEmptyPages;
 
-    internal static ConfigEntry<dummy> TestAction;
-    internal static ConfigEntry<string> TestProtected;
-    internal static ConfigEntry<string> TestHidden;
-    internal static ConfigEntry<dummy> TestCustomDataFeed;
-    internal static ConfigEntry<float> TestRangeFloat;
-
-    internal static ConfigEntry<dummy> OpenSettingsInspector;
+    public static ConfigEntry<bool> AllowCollapsingConfigs;
+    public static ConfigEntry<bool> DefaultCollapsed;
 
     public override void Load()
     {
@@ -53,13 +49,16 @@ public class Plugin : BasePlugin
         ShowEmptyPages = Config.Bind("General", "ShowEmptyPages", true, "Whether to show category buttons for pages which would have no content");
         SortEmptyPages = Config.Bind("General", "SortEmptyPages", true, "Whether to sort empty pages to the bottom of the list");
 
-        TestAction = Config.Bind("Tests", "TestAction", default(dummy), new ConfigDescription("TestAction", null, new ActionConfig(() => Log.LogError("OneOfThem"))));
-        TestProtected = Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));
-        TestHidden = Config.Bind("Tests", "TestHidden", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestHidden", null, new HiddenConfig()));
-        TestCustomDataFeed = Config.Bind("Tests", "TestCustomDataFeed", default(dummy), new ConfigDescription("TestCustomDataFeed", null, new CustomDataFeed(CustomDateFeedEnumerate)));
-        TestRangeFloat = Config.Bind("Tests", "TestRangeFloat", 0.5f, new ConfigDescription("TestRangeFloat", null, new RangeAttribute(0f, 1f)));
+        AllowCollapsingConfigs = Config.Bind("General", "Allow Collapsing", false, "Whether to allow collapsing Config Sections or not");
+        DefaultCollapsed = Config.Bind("General", "Default Collapsed", false, "Whether to have Config Sections collapsed by default or not");
 
-        OpenSettingsInspector = Config.Bind("Debug", "OpenSettingsInspector", default(dummy), new ConfigDescription("OpenSettingsInspector", null, new HiddenConfig(), new ActionConfig(() => DataFeedHelpers.SettingsDataFeed?.Slot?.OpenInspectorForTarget())));
+        Config.Bind("Tests", "TestAction", default(dummy), new ConfigDescription("TestAction", null, new ActionConfig(() => Log.LogError("OneOfThem"))));
+        Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));
+        Config.Bind("Tests", "TestHidden", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestHidden", null, new HiddenConfig()));
+        Config.Bind("Tests", "TestCustomDataFeed", default(dummy), new ConfigDescription("TestCustomDataFeed", null, new CustomDataFeed(CustomDateFeedEnumerate)));
+        Config.Bind("Tests", "TestRangeFloat", 0.5f, new ConfigDescription("TestRangeFloat", null, new RangeAttribute(0f, 1f)));
+
+        Config.Bind("Debug", "OpenSettingsInspector", default(dummy), new ConfigDescription("OpenSettingsInspector", null, new HiddenConfig(), new ActionConfig(() => DataFeedHelpers.SettingsDataFeed?.Slot?.OpenInspectorForTarget())));
 
         HarmonyInstance.PatchAll();
 

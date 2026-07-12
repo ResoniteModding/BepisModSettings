@@ -58,18 +58,59 @@ public static class DataFeedHelpers
 
         return toggle;
     }
+    
+    private static bool TryGetAcceptableValues(AcceptableValueBase acceptable, out object min, out object max, out object list)
+    {
+        min = null;
+        max = null;
+        list = null;
+
+        Type acceptableType = acceptable?.GetType();
+        if (acceptableType == null) return false;
+    
+        if (acceptableType.IsGenericType && acceptableType.GetGenericTypeDefinition() == typeof(AcceptableValueRange<>))
+        {
+            min = AccessTools.Property(acceptableType, "MinValue")?.GetValue(acceptable);
+            max = AccessTools.Property(acceptableType, "MaxValue")?.GetValue(acceptable);
+            return true;
+        }
+
+        if (acceptableType.IsGenericType && acceptableType.GetGenericTypeDefinition() == typeof(AcceptableValueList<>))
+        {
+            list = AccessTools.Property(acceptableType, "AcceptableValues")?.GetValue(acceptable);
+            return true;
+        }
+
+        return false;
+    }
 
     internal static DataFeedItem GenerateValueFieldMethod<T>(string key, IReadOnlyList<string> path, IReadOnlyList<string> groupKeys, InternalLocale internalLocale, ConfigEntryBase configKey)
     {
         TryInjectNewTemplateType(configKey.SettingType);
 
         DataFeedItem value;
-
-        if (configKey.Description.Tags.FirstOrDefault(x => x is RangeAttribute) is RangeAttribute rangeAttribute)
+        RangeAttribute rangeAttribute = null;
+        if (TryGetAcceptableValues(configKey.Description.AcceptableValues, out object min, out object max, out object list) || configKey.Description.Tags.FirstOrDefault(x => x is RangeAttribute) is RangeAttribute ra && (rangeAttribute = ra) != null)
         {
+            if (list is T[] values && values.Length > 0)
+            {
+                List<IComparable> comparable = values.OfType<IComparable>().ToList();
+                if (comparable.Count > 0)
+                {
+                    min = comparable.Min();
+                    max = comparable.Max();
+                }
+            }
+
+            if (rangeAttribute != null)
+            {
+                min = rangeAttribute.Min;
+                max = rangeAttribute.Max;
+            }
+
             DataFeedSlider<T> slider = new DataFeedSlider<T>();
             slider.InitBase($"{key}.{configKey.SettingType}", path, groupKeys, internalLocale.Key, internalLocale.Description);
-            slider.InitSetup(field => { field.SyncWithConfigKey(configKey); }, min => min.BoxedValue = rangeAttribute.Min, max => max.BoxedValue = rangeAttribute.Max);
+            slider.InitSetup(field => { field.SyncWithConfigKey(configKey); }, m => m.BoxedValue = min, m => m.BoxedValue = max);
 
             value = slider;
         }
@@ -608,6 +649,29 @@ public static class DataFeedHelpers
     {
         slot = element?.FindNearestParent<Slot>();
         return slot != null;
+    }
+    
+    public static DynamicVariableSpace EnsureSpace(this Slot slot, string spaceName)
+    {
+        DynamicVariableSpace space = slot.GetComponentOrAttach<DynamicVariableSpace>(d => d.SpaceName.Value == spaceName);
+        space.SpaceName.Value = spaceName;
+        return space;
+    }
+
+    public static DynamicField<T> CreateDynField<T>(this Slot slot, string name, IField<T> value)
+    {
+        DynamicField<T> dynField = slot.GetComponentOrAttach<DynamicField<T>>(d => d.VariableName.Value == name);
+        dynField.VariableName.Value = name;
+        dynField.TargetField.Target = value;
+        return dynField;
+    }
+
+    public static DynamicValueVariable<T> CreateValVar<T>(this Slot slot, string name, T value)
+    {
+        DynamicValueVariable<T> valueVariable = slot.GetComponentOrAttach<DynamicValueVariable<T>>(d => d.VariableName.Value == name);
+        valueVariable.VariableName.Value = name;
+        valueVariable.Value.Value = value;
+        return valueVariable;
     }
 
     private static bool _isUpdatingSettings;

@@ -169,7 +169,7 @@ public static class BepisPluginsPage
                 string pluginAuthor = metaData.Author;
                 string pluginVersion = metaData.Version;
 
-                LocaleString nameKey = pluginName;
+                LocaleString nameKey = isEmpty ? $"<color=#a8a8a8>{pluginName}</color>" : pluginName;
                 LocaleString descriptionKey = $"{pluginName} ({pluginVersion}){(!string.IsNullOrEmpty(pluginAuthor) ? $"\nby \"{pluginAuthor}\"" : "")}\n\n{pluginGuid}";
                 string resolvedDescription = descriptionKey.ToString();
 
@@ -195,14 +195,21 @@ public static class BepisPluginsPage
                 {
                     if (!x.TryFindClosestSlot(out Slot slot)) return;
 
-                    EnsureSpace(slot, DynamicVariableHelper.ProcessName(pluginGuid));
-                    CreateDynField(slot, "Visible", x);
+                    if (isEmpty && slot.GetComponent<Button>() is { ColorDrivers.Count: 2 } btn)
+                    {
+                        var _0 = btn.ColorDrivers[0];
+                        _0.NormalColor.Value = RadiantUI_Constants.Sub.ORANGE;
+                        _0.HighlightColor.Value = RadiantUI_Constants.Dark.ORANGE;
+                    }
 
-                    CreateValVar(slot, "Name", pluginName);
-                    CreateValVar(slot, "Description", resolvedDescription);
-                    CreateValVar(slot, "ID", pluginGuid);
-                    CreateValVar(slot, "Version", pluginVersion);
-                    CreateValVar(slot, "Author", pluginAuthor);
+                    slot.EnsureSpace(DynamicVariableHelper.ProcessName(pluginGuid));
+                    slot.CreateDynField("Visible", x);
+
+                    slot.CreateValVar("Name", pluginName);
+                    slot.CreateValVar("Description", resolvedDescription);
+                    slot.CreateValVar("ID", pluginGuid);
+                    slot.CreateValVar("Version", pluginVersion);
+                    slot.CreateValVar("Author", pluginAuthor);
                 });
 
                 if (Plugin.SortEmptyPages.Value && isEmpty) loadedPlugin.InitSorting(1);
@@ -217,10 +224,10 @@ public static class BepisPluginsPage
 
                 if (!x.TryFindClosestSlot(out Slot slot)) return;
 
-                EnsureSpace(slot, DynamicVariableHelper.ProcessName(noResults.ItemKey));
-                CreateDynField(slot, "Visible", x);
+                slot.EnsureSpace(DynamicVariableHelper.ProcessName(noResults.ItemKey));
+                slot.CreateDynField("Visible", x);
 
-                CreateValVar(slot, "Name", noResults.ItemKey);
+                slot.CreateValVar("Name", noResults.ItemKey);
             });
             noResults.InitSlotName();
             yield return noResults;
@@ -250,25 +257,5 @@ public static class BepisPluginsPage
         bepisCategory.InitBase("BepInEx.Core.Config", path, coreGroupParam, "Settings.BepInEx.Core.Config".AsLocaleKey());
         bepisCategory.InitSlotName();
         yield return bepisCategory;
-
-        void EnsureSpace(Slot slot, string spaceName)
-        {
-            DynamicVariableSpace space = slot.GetComponentOrAttach<DynamicVariableSpace>(d => d.SpaceName.Value == spaceName);
-            space.SpaceName.Value = spaceName;
-        }
-
-        void CreateDynField<T>(Slot slot, string name, IField<T> value)
-        {
-            DynamicField<T> dynField = slot.GetComponentOrAttach<DynamicField<T>>(d => d.VariableName.Value == name);
-            dynField.VariableName.Value = name;
-            dynField.TargetField.Target = value;
-        }
-
-        void CreateValVar<T>(Slot slot, string name, T value)
-        {
-            DynamicValueVariable<T> valueVariable = slot.GetComponentOrAttach<DynamicValueVariable<T>>(d => d.VariableName.Value == name);
-            valueVariable.VariableName.Value = name;
-            valueVariable.Value.Value = value;
-        }
     }
 }
