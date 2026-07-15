@@ -26,10 +26,6 @@ source = "./BepisModSettings/bin/Release/BepisModSettings.dll"
 target = "plugins/BepisModSettings/"
 
 [[build.copy]]
-source = "./BepisModSettings/bin/Release/BepisModSettings.pdb"
-target = "plugins/BepisModSettings/"
-
-[[build.copy]]
 source = "./BepisModSettings/Locale"
 target = "plugins/BepisModSettings/Locale"
 
