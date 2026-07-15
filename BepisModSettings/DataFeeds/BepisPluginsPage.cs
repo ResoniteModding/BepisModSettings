@@ -213,6 +213,7 @@ public static class BepisPluginsPage
                 });
 
                 if (Plugin.SortEmptyPages.Value && isEmpty) loadedPlugin.InitSorting(1);
+                loadedPlugin.InitSlotName();
                 yield return loadedPlugin;
             }
 
@@ -241,6 +242,7 @@ public static class BepisPluginsPage
 
                 await foreach (DataFeedItem item in handler(path))
                 {
+                    item.InitSlotName();
                     yield return item;
                 }
             }

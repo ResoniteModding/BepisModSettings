@@ -4,10 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using BepInEx;
 using BepInEx.Configuration;
-using BepInEx.NET.Common;
-using BepInExResoniteShim;
 using BepisLocaleLoader;
 using BepisModSettings.ConfigAttributes;
 using Elements.Core;
@@ -39,6 +36,7 @@ public static class BepisConfigsPage
 
                     await foreach (DataFeedItem item in handler(path))
                     {
+                        item.InitSlotName();
                         yield return item;
                     }
                 }
@@ -60,6 +58,7 @@ public static class BepisConfigsPage
         {
             DataFeedLabel noConfigs = new DataFeedLabel();
             noConfigs.InitBase("NoConfigs", path, null, "Settings.BepInEx.Plugins.NoConfigs".AsLocaleKey());
+            noConfigs.InitSlotName();
             yield return noConfigs;
         }
         else
@@ -67,6 +66,7 @@ public static class BepisConfigsPage
             IAsyncEnumerable<DataFeedItem> configs = EnumerateConfigs(configFile, metadata, path);
             await foreach (DataFeedItem item in configs)
             {
+                item.InitSlotName();
                 yield return item;
             }
         }
@@ -74,6 +74,7 @@ public static class BepisConfigsPage
         // Metadata
         DataFeedGroup modGroup = new DataFeedGroup();
         modGroup.InitBase("Metadata", path, null, "Settings.BepInEx.Plugins.Metadata".AsLocaleKey());
+        modGroup.InitSlotName();
         yield return modGroup;
 
         string[] metadataGroup = ["Metadata"];
@@ -81,6 +82,7 @@ public static class BepisConfigsPage
         DataFeedIndicator<string> idIndicator = new DataFeedIndicator<string>();
         idIndicator.InitBase("Id", path, metadataGroup, "Settings.BepInEx.Plugins.Guid".AsLocaleKey());
         idIndicator.InitSetupValue(field => field.Value = metadata.ID);
+        idIndicator.InitSlotName();
         yield return idIndicator;
 
         if (!string.IsNullOrWhiteSpace(metadata.Author))
@@ -88,12 +90,14 @@ public static class BepisConfigsPage
             DataFeedIndicator<string> authorsIndicator = new DataFeedIndicator<string>();
             authorsIndicator.InitBase("Author", path, metadataGroup, "Settings.BepInEx.Plugins.Author".AsLocaleKey());
             authorsIndicator.InitSetupValue(field => field.Value = metadata.Author);
+            authorsIndicator.InitSlotName();
             yield return authorsIndicator;
         }
 
         DataFeedIndicator<string> versionIndicator = new DataFeedIndicator<string>();
         versionIndicator.InitBase("Version", path, metadataGroup, "Settings.BepInEx.Plugins.Version".AsLocaleKey());
         versionIndicator.InitSetupValue(field => field.Value = metadata.Version);
+        versionIndicator.InitSlotName();
         yield return versionIndicator;
 
         if (!string.IsNullOrWhiteSpace(metadata.Link) && Uri.TryCreate(metadata.Link, UriKind.Absolute, out Uri uri))
@@ -107,6 +111,7 @@ public static class BepisConfigsPage
 
                 slot.AttachComponent<Hyperlink>().URL.Value = uri;
             });
+            modHyperlink.InitSlotName();
             yield return modHyperlink;
         }
     }
@@ -122,10 +127,12 @@ public static class BepisConfigsPage
 
             if (!sectionGroup.Any()) continue;
 
-            DataFeedResettableGroup configs = new DataFeedResettableGroup();
-            configs.InitBase(section, path, null, section.AsLocaleKey());
+            DataFeedResettableGroup configs = DataFeedHelpers.DataFeedCollapseResettableGroup(section, path, null, section.AsLocaleKey());
+            Action<SyncDelegate<Action>> oldAction = configs.ResetAction;
             configs.InitResetAction(a =>
             {
+                oldAction?.Invoke(a);
+
                 Button but = a.Slot.GetComponentInChildren<Button>();
                 if (but == null) return;
 
@@ -138,53 +145,6 @@ public static class BepisConfigsPage
                     if (!store.Value.Value) return;
                     ResetConfigSection(metaData.ID, section);
                 };
-
-                if (!Plugin.AllowCollapsingConfigs.Value) return;
-                //▶▼
-                //⮞⮟
-                //🞂🞃
-
-                Slot tab = but.Slot.FindParent(x => x.Name == "Reset Button").Parent[0];
-
-                DynamicValueVariable<bool> valField = tab.AttachComponent<DynamicValueVariable<bool>>();
-                valField.VariableName.Value = $"{section}Visible";
-                valField.Value.Value = Plugin.DefaultCollapsed.Value;
-
-                Button tabbtn = tab.AttachComponent<Button>(runOnAttachBehavior: false);
-                Text text = tab.GetComponentInChildren<Text>();
-
-                BooleanValueDriver<string> textBvd = tab.AttachComponent<BooleanValueDriver<string>>();
-                if (text.Slot.GetComponent<LocaleStringDriver>() is { } locale)
-                {
-                    textBvd.FalseValue.Value = "⮞ {0}";
-                    textBvd.TrueValue.Value = "⮟ {0}";
-                    textBvd.TargetField.ForceLink(locale.Format);
-                }
-                else
-                {
-                    textBvd.FalseValue.Value = $"⮞ {text.Content.Value}";
-                    textBvd.TrueValue.Value = $"⮟ {text.Content.Value}";
-                    textBvd.TargetField.ForceLink(text.Content);
-                }
-                textBvd.State.DriveFrom(valField.Value);
-
-                tabbtn.LocalPressed += (b, _) => SetActiveState(b.Slot);
-                but.Slot.RunInUpdates(1, () => SetActiveState(tabbtn.Slot));
-
-                return;
-
-                void SetActiveState(Slot slot)
-                {
-                    DynamicValueVariable<bool> var = slot.GetComponent<DynamicValueVariable<bool>>(x => x.VariableName.Value == $"{section}Visible");
-
-                    bool val = !var.Value.Value;
-                    var.Value.Value = val;
-
-                    foreach (Slot s in slot.Parent.Parent[1][0].Children)
-                    {
-                        s.ActiveSelf = val;
-                    }
-                }
             });
             yield return configs;
 
@@ -199,9 +159,33 @@ public static class BepisConfigsPage
 
                 bool isHidden = HiddenConfig.IsHidden(config);
                 Type valueType = config.SettingType;
+                
+                string defaultValueText;
+
+                if (config.DefaultValue == null)
+                {
+                    defaultValueText = "<i>Null</i>";
+                }
+                else
+                {
+                    string defaultValue = config.DefaultValue.ToString();
+
+                    if (string.IsNullOrEmpty(defaultValue))
+                    {
+                        defaultValueText = "<i>Empty String</i>";
+                    }
+                    else if (valueType == typeof(string) || valueType == typeof(Uri))
+                    {
+                        defaultValueText = $"\"{defaultValue}\"";
+                    }
+                    else
+                    {
+                        defaultValueText = defaultValue;
+                    }
+                }
 
                 LocaleString nameKey = isHidden ? $"<color=hero.yellow>{config.Definition.Key}</color>" : config.Definition.Key;
-                LocaleString descKey = $"{config.Description.Description}\n\nDefault: {(string.IsNullOrEmpty(config.DefaultValue?.ToString()) ? "Null" : config.DefaultValue?.ToString())}";
+                LocaleString descKey = $"{config.Description.Description}\n\nDefault: {defaultValueText}";
                 LocaleString descKey2 = $"{config.Description.Description}";
                 LocaleString defaultKey = $"{config.Definition.Key} : {valueType.GetNiceName()}";
                 LocaleString valueKey = $"{config.Definition.Key} : {config.BoxedValue}";
@@ -219,7 +203,7 @@ public static class BepisConfigsPage
                 }
 
                 if (isHidden) nameKey = nameKey.SetFormat("<color=hero.yellow>{0}</color>");
-                descKey = descKey.SetFormat("{0}\n\nDefault: " + (string.IsNullOrEmpty(config.DefaultValue?.ToString()) ? "Null" : config.DefaultValue?.ToString()));
+                descKey = descKey.SetFormat("{0}\n\nDefault: " + defaultValueText);
 
                 InternalLocale internalLocale = new InternalLocale(nameKey, descKey);
 
@@ -253,10 +237,12 @@ public static class BepisConfigsPage
                         IAsyncEnumerable<DataFeedItem> datafeed = customDataFeed(path, groupingKeys);
                         await foreach (DataFeedItem item in datafeed)
                         {
-                            if (item.SetupVisible == null)
+                            Action<IField<bool>> oldSetup = item.SetupVisible;
+                            item.InitVisible(x =>
                             {
-                                item.InitVisible(x => x.Value = !Plugin.DefaultCollapsed.Value);
-                            }
+                                oldSetup?.Invoke(x);
+                                x.Value = !Plugin.DefaultCollapsed.Value;
+                            });
                             yield return item;
                         }
                     }

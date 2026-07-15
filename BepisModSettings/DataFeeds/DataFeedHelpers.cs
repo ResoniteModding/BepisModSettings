@@ -25,6 +25,7 @@ using Elements.Core;
 using FrooxEngine;
 using FrooxEngine.UIX;
 using HarmonyLib;
+using ProtoFlux.Runtimes.Execution.Nodes.FrooxEngine.Variables;
 
 namespace BepisModSettings.DataFeeds;
 
@@ -58,7 +59,7 @@ public static class DataFeedHelpers
 
         return toggle;
     }
-    
+
     private static bool TryGetAcceptableValues(AcceptableValueBase acceptable, out object min, out object max, out object list)
     {
         min = null;
@@ -67,7 +68,7 @@ public static class DataFeedHelpers
 
         Type acceptableType = acceptable?.GetType();
         if (acceptableType == null) return false;
-    
+
         if (acceptableType.IsGenericType && acceptableType.GetGenericTypeDefinition() == typeof(AcceptableValueRange<>))
         {
             min = AccessTools.Property(acceptableType, "MinValue")?.GetValue(acceptable);
@@ -628,20 +629,31 @@ public static class DataFeedHelpers
 
     public static void InitSlotName(this DataFeedItem item)
     {
-        if (item.SetupEnabled == null)
+        if (item.SetupVisible != null)
         {
-            item.InitEnabled(InitField);
+            Action<IField<bool>> oldAction = item.SetupVisible;
+            item.InitVisible(field => InitField(field, oldAction));
+            return;
         }
-        else if (item.SetupVisible == null)
+        
+        if (item.SetupEnabled != null)
         {
-            item.InitVisible(InitField);
+            Action<IField<bool>> oldAction = item.SetupEnabled;
+            item.InitEnabled(field => InitField(field, oldAction));
+            return;
         }
+
+        item.InitVisible(field => InitField(field, null));
         return;
 
-        void InitField(IField<bool> field)
+        void InitField(IField<bool> field, Action<IField<bool>> oldAction)
         {
-            if (!field.TryFindClosestSlot(out Slot slot)) return;
-            slot.Name = item.ItemKey;
+            oldAction?.Invoke(field);
+
+            if (field.TryFindClosestSlot(out Slot slot))
+            {
+                slot.Name = item.ItemKey;
+            }
         }
     }
 
@@ -650,7 +662,7 @@ public static class DataFeedHelpers
         slot = element?.FindNearestParent<Slot>();
         return slot != null;
     }
-    
+
     public static DynamicVariableSpace EnsureSpace(this Slot slot, string spaceName)
     {
         DynamicVariableSpace space = slot.GetComponentOrAttach<DynamicVariableSpace>(d => d.SpaceName.Value == spaceName);
@@ -672,6 +684,132 @@ public static class DataFeedHelpers
         valueVariable.VariableName.Value = name;
         valueVariable.Value.Value = value;
         return valueVariable;
+    }
+    
+    public static DataFeedGroup DataFeedCollapseGroup(string itemKey, IReadOnlyList<string> path, IReadOnlyList<string> groupingParameters, LocaleString label, Uri icon = null, Action<IField<bool>> setupVisible = null, Action<IField<bool>> setupEnabled = null, IReadOnlyList<DataFeedItem> subitems = null, object customEntity = null)
+    {
+        DataFeedGroup group = new DataFeedGroup();
+        group.InitBase(itemKey, path, groupingParameters, label, icon, setupVisible, setupEnabled, subitems, customEntity);
+        group.InitVisible(a =>
+        {
+            Slot but = a.FindNearestParent<Slot>();
+            if (but == null) return;
+
+            if (!Plugin.AllowCollapsingConfigs.Value) return;
+
+            Slot tab = but[0][0][0];
+
+            DynamicValueVariable<bool> valField = tab.AttachComponent<DynamicValueVariable<bool>>();
+            valField.VariableName.Value = $"{itemKey}Visible";
+            valField.Value.Value = Plugin.DefaultCollapsed.Value;
+
+            Button tabbtn = tab.AttachComponent<Button>(runOnAttachBehavior: false);
+            Text text = tab.GetComponentInChildren<Text>();
+
+            BooleanValueDriver<string> textBvd = tab.AttachComponent<BooleanValueDriver<string>>();
+            if (text.Slot.GetComponent<LocaleStringDriver>() is { } locale)
+            {
+                textBvd.FalseValue.Value = "⮞ {0}";
+                textBvd.TrueValue.Value = "⮟ {0}";
+                textBvd.TargetField.ForceLink(locale.Format);
+            }
+            else
+            {
+                textBvd.FalseValue.Value = $"⮞ {text.Content.Value}";
+                textBvd.TrueValue.Value = $"⮟ {text.Content.Value}";
+                textBvd.TargetField.ForceLink(text.Content);
+            }
+            textBvd.State.DriveFrom(valField.Value);
+
+            tabbtn.LocalPressed += (b, _) => SetActiveState(b.Slot);
+            but.RunInUpdates(1, () => SetActiveState(tabbtn.Slot));
+
+            return;
+
+            void SetActiveState(Slot slot)
+            {
+                DynamicValueVariable<bool> var = slot.GetComponent<DynamicValueVariable<bool>>(x => x.VariableName.Value == $"{itemKey}Visible");
+
+                bool val = !var.Value.Value;
+                var.Value.Value = val;
+
+                foreach (Slot s in slot.Parent.Parent[1][0].Children)
+                {
+                    s.ActiveSelf = val;
+                }
+            }
+        });
+        return group;
+    }
+
+    public static DataFeedGroup DataFeedCollapseGroup(string itemKey, IReadOnlyList<string> path, IReadOnlyList<string> groupingParameters, LocaleString label, LocaleString description, Uri icon = null, Action<IField<bool>> setupVisible = null, Action<IField<bool>> setupEnabled = null, IReadOnlyList<DataFeedItem> subitems = null, object customEntity = null)
+    {
+        DataFeedGroup group = DataFeedCollapseGroup(itemKey, path, groupingParameters, label, icon, setupVisible, setupEnabled, subitems, customEntity);
+        group.InitDescription(description);
+        return group;
+    }
+
+    public static DataFeedResettableGroup DataFeedCollapseResettableGroup(string itemKey, IReadOnlyList<string> path, IReadOnlyList<string> groupingParameters, LocaleString label, Uri icon = null, Action<IField<bool>> setupVisible = null, Action<IField<bool>> setupEnabled = null, IReadOnlyList<DataFeedItem> subitems = null, object customEntity = null)
+    {
+        DataFeedResettableGroup group = new DataFeedResettableGroup();
+        group.InitBase(itemKey, path, groupingParameters, label, icon, setupVisible, setupEnabled, subitems, customEntity);
+        group.InitResetAction(a =>
+        {
+            Button but = a.Slot.GetComponentInChildren<Button>();
+            if (but == null) return;
+
+            if (!Plugin.AllowCollapsingConfigs.Value) return;
+
+            Slot tab = but.Slot.FindParent(x => x.Name == "Tab Area")[0];
+
+            DynamicValueVariable<bool> valField = tab.AttachComponent<DynamicValueVariable<bool>>();
+            valField.VariableName.Value = $"{itemKey}Visible";
+            valField.Value.Value = Plugin.DefaultCollapsed.Value;
+
+            Button tabbtn = tab.AttachComponent<Button>(runOnAttachBehavior: false);
+            Text text = tab.GetComponentInChildren<Text>();
+
+            BooleanValueDriver<string> textBvd = tab.AttachComponent<BooleanValueDriver<string>>();
+            if (text.Slot.GetComponent<LocaleStringDriver>() is { } locale)
+            {
+                textBvd.FalseValue.Value = "⮞ {0}";
+                textBvd.TrueValue.Value = "⮟ {0}";
+                textBvd.TargetField.ForceLink(locale.Format);
+            }
+            else
+            {
+                textBvd.FalseValue.Value = $"⮞ {text.Content.Value}";
+                textBvd.TrueValue.Value = $"⮟ {text.Content.Value}";
+                textBvd.TargetField.ForceLink(text.Content);
+            }
+            textBvd.State.DriveFrom(valField.Value);
+
+            tabbtn.LocalPressed += (b, _) => SetActiveState(b.Slot);
+            but.Slot.RunInUpdates(1, () => SetActiveState(tabbtn.Slot));
+
+            return;
+
+            void SetActiveState(Slot slot)
+            {
+                DynamicValueVariable<bool> var = slot.GetComponent<DynamicValueVariable<bool>>(x => x.VariableName.Value == $"{itemKey}Visible");
+
+                bool val = !var.Value.Value;
+                var.Value.Value = val;
+
+                foreach (Slot s in slot.Parent.Parent[1][0].Children)
+                {
+                    s.ActiveSelf = val;
+                }
+            }
+        });
+        return group;
+    }
+
+    public static DataFeedResettableGroup DataFeedCollapseResettableGroup(string itemKey, IReadOnlyList<string> path, IReadOnlyList<string> groupingParameters, LocaleString label, LocaleString description, Uri icon = null, Action<IField<bool>> setupVisible = null, Action<IField<bool>> setupEnabled = null, IReadOnlyList<DataFeedItem> subitems = null, object customEntity = null)
+    {
+        DataFeedResettableGroup group = DataFeedCollapseResettableGroup(itemKey, path, groupingParameters, label, icon, setupVisible, setupEnabled, subitems, customEntity);
+        group.InitDescription(description);
+        return group;
     }
 
     private static bool _isUpdatingSettings;

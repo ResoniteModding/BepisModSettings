@@ -38,6 +38,7 @@ public static class DataFeedInjector
         DataFeedIndicator<string> notUserspace = new DataFeedIndicator<string>();
         notUserspace.InitBase("NotUserspace", path, null, Userspace.UserspaceWorld.GetLocalized("Settings.BepInEx.Warning"));
         notUserspace.InitSetupValue(field => field.Value = Userspace.UserspaceWorld.GetLocalized("Settings.BepInEx.NotUserspace"));
+        notUserspace.InitSlotName();
         yield return notUserspace;
     }
 }

@@ -52,6 +52,14 @@ public class Plugin : BasePlugin
         AllowCollapsingConfigs = Config.Bind("General", "Allow Collapsing", false, "Whether to allow collapsing Config Sections or not");
         DefaultCollapsed = Config.Bind("General", "Default Collapsed", false, "Whether to have Config Sections collapsed by default or not");
 
+        Config.SettingChanged += (sender, args) =>
+        {
+            if (args.ChangedSetting == AllowCollapsingConfigs || args.ChangedSetting == DefaultCollapsed)
+            {
+                DataFeedHelpers.RefreshSettingsScreen();
+            }
+        };
+
         Config.Bind("Tests", "TestAction", default(dummy), new ConfigDescription("TestAction", null, new ActionConfig(() => Log.LogError("OneOfThem"))));
         Config.Bind("Tests", "TestProtected", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestProtected", null, new ProtectedConfig()));
         Config.Bind("Tests", "TestHidden", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestHidden", null, new HiddenConfig()));
@@ -149,11 +157,10 @@ public class Plugin : BasePlugin
     {
         await Task.CompletedTask;
 
-        DataFeedGroup group = new DataFeedGroup();
-        group.InitBase("Test", path, groupingKeys, "Test");
+        DataFeedGroup group = DataFeedHelpers.DataFeedCollapseGroup("TestCustomDataFeed", path, groupingKeys, "TestCustomDataFeed");
         yield return group;
 
-        string[] groupingKeysArray = groupingKeys.Concat(["Test"]).ToArray();
+        string[] groupingKeysArray = groupingKeys.Concat(["TestCustomDataFeed"]).ToArray();
 
         DataFeedIndicator<string> indicator = new DataFeedIndicator<string>();
         indicator.InitBase("Test1", path, groupingKeysArray, "Test1");
