@@ -10,10 +10,13 @@ on:
 jobs:
     build:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
         steps:
-            -   uses: actions/checkout@v3
+            -   uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
                 with:
-                    fetch-depth: 0 # Need to fetch all for proper history
+                    fetch-depth: 0
+                    persist-credentials: false
             -   name: Collect build info
                 id: info
                 run: |
@@ -25,23 +28,27 @@ jobs:
                     VERSION=$(grep -oP '(?<=<Version>)[^<]+' BepisModSettings/BepisModSettings.csproj)
                     echo "version=$VERSION" >> $GITHUB_OUTPUT
                     echo "Version found: $VERSION"
-            -   uses: actions/setup-dotnet@v4
+            -   uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
                 with:
-                    dotnet-version: "9.0.x"
+                    global-json-file: global.json
             -   name: Build
                 run: |
                     dotnet build -c Release
+                    dotnet pack -c Release --no-build -o ./bin/dist
                     # Create dist folder and copy the built DLL for release
                     mkdir -p ./bin/dist/
                     cp ./BepisModSettings/bin/Release/BepisModSettings.dll ./bin/dist/
             -   name: Create Thunderstore Package
+                env:
+                    VERSION: ${{ steps.info.outputs.version }}
                 run: |
                     dotnet tool restore
-                    dotnet tcli build --package-version ${{ steps.info.outputs.version }}
+                    dotnet tcli build --package-version "$VERSION"
             -   name: Upload artifacts
-                uses: actions/upload-artifact@v4
+                uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
                 with:
                     name: BepisModSettings-${{ steps.info.outputs.version }}-${{ steps.info.outputs.sha_short }}
                     path: |
+                        ./bin/dist/*.nupkg
                         ./bin/dist/*.dll
                         ./build/*.zip
