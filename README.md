@@ -14,5 +14,26 @@ Configuration page footer:<img width="1358" height="480" alt="image" src="https:
    - **Default location:** `C:\Program Files (x86)\Steam\steamapps\common\Resonite\BepInEx\`
 4. Start the game. If you want to verify that the mod is working you can check your BepInEx logs.
 
+## Usage for Developers
+
+### Adding BepisModSettings to Your Mod
+
+1. Add the NuGet package reference to your mod's `.csproj` file:
+
+```xml
+<PackageReference Include="ResoniteModding.BepisModSettings" Version="1.*" />
+```
+
+2. Add it as a dependency in your `thunderstore.toml`:
+
+```toml
+[package.dependencies]
+ResoniteModding-BepisModSettings = "1.0.0"
+```
+
+### Examples
+
+Usage examples can be found in [`Examples.cs`](./BepisModSettings/Examples.cs).
+
 ## Attributions
 Portions of this project are derived from the [MonkeyLoader Resonite GamePack](https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite), originally licensed under the GNU Lesser General Public License v3.0.
