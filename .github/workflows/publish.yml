@@ -13,32 +13,10 @@ jobs:
                 with:
                     fetch-depth: 0
                     persist-credentials: false
-            -   name: Collect build info
-                id: info
-                run: |
-                    # Get short SHA
-                    SHA_SHORT=$(git rev-parse --short HEAD)
-                    echo "sha_short=$SHA_SHORT" >> $GITHUB_OUTPUT
-                    
-                    # Extract version from csproj
-                    VERSION=$(grep -oP '(?<=<Version>)[^<]+' BepisModSettings/BepisModSettings.csproj)
-                    echo "version=$VERSION" >> $GITHUB_OUTPUT
-                    echo "Version found: $VERSION"
             -   uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
                 with:
                     global-json-file: global.json
-            -   name: Build
-                run: |
-                    dotnet build -c Release
-            -   name: Create Thunderstore Package
-                env:
-                    VERSION: ${{ steps.info.outputs.version }}
-                run: |
-                    dotnet tool restore
-                    dotnet tcli build --package-version "$VERSION"
-            -   name: Publish to Thunderstore
-                run: |
-                    ZIP_FILE=$(ls ./build/*.zip | head -1)
-                    dotnet tcli publish --file "$ZIP_FILE"
+            -   name: Build and publish Thunderstore package
                 env:
                     TCLI_AUTH_TOKEN: ${{ secrets.TCLI_AUTH_TOKEN }}
+                run: dotnet build -c Release -t:PackTS -P:PublishTS=true

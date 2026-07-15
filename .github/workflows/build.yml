@@ -17,37 +17,26 @@ jobs:
                 with:
                     fetch-depth: 0
                     persist-credentials: false
-            -   name: Collect build info
-                id: info
-                run: |
-                    # Get short SHA
-                    SHA_SHORT=$(git rev-parse --short HEAD)
-                    echo "sha_short=$SHA_SHORT" >> $GITHUB_OUTPUT
-                    
-                    # Extract version from csproj
-                    VERSION=$(grep -oP '(?<=<Version>)[^<]+' BepisModSettings/BepisModSettings.csproj)
-                    echo "version=$VERSION" >> $GITHUB_OUTPUT
-                    echo "Version found: $VERSION"
             -   uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
                 with:
                     global-json-file: global.json
-            -   name: Build
+            -   name: Build and create Thunderstore package
+                id: build
                 run: |
-                    dotnet build -c Release
+                    dotnet build -c Release -t:PackTS
                     dotnet pack -c Release --no-build -o ./bin/dist
-                    # Create dist folder and copy the built DLL for release
-                    mkdir -p ./bin/dist/
                     cp ./BepisModSettings/bin/Release/BepisModSettings.dll ./bin/dist/
-            -   name: Create Thunderstore Package
+            -   name: Show version
+                id: info
                 env:
-                    VERSION: ${{ steps.info.outputs.version }}
+                    VERSION: '${{ steps.build.outputs.version }}'
                 run: |
-                    dotnet tool restore
-                    dotnet tcli build --package-version "$VERSION"
+                    echo "Version found: $VERSION"
+                    echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
             -   name: Upload artifacts
                 uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
                 with:
-                    name: BepisModSettings-${{ steps.info.outputs.version }}-${{ steps.info.outputs.sha_short }}
+                    name: 'BepisModSettings-${{ steps.build.outputs.version }}-${{ steps.info.outputs.sha_short }}'
                     path: |
                         ./bin/dist/*.nupkg
                         ./bin/dist/*.dll

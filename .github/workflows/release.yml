@@ -27,33 +27,15 @@ jobs:
                 with:
                     fetch-depth: 0
                     persist-credentials: false
-            -   name: Collect build info
-                id: info
-                run: |
-                    # Get short SHA
-                    SHA_SHORT=$(git rev-parse --short HEAD)
-                    echo "sha_short=$SHA_SHORT" >> $GITHUB_OUTPUT
-                    
-                    # Extract version from csproj
-                    VERSION=$(grep -oP '(?<=<Version>)[^<]+' BepisModSettings/BepisModSettings.csproj)
-                    echo "version=$VERSION" >> $GITHUB_OUTPUT
-                    echo "Version found: $VERSION"
             -   uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5.4.0
                 with:
                     global-json-file: global.json
-            -   name: Build
+            -   name: Build and create Thunderstore package
+                id: build
                 run: |
-                    dotnet build -c Release
+                    dotnet build -c Release -t:PackTS
                     dotnet pack -c Release --no-build -o ./bin/dist
-                    # Create dist folder and copy the built DLL for release
-                    mkdir -p ./bin/dist/
                     cp ./BepisModSettings/bin/Release/BepisModSettings.dll ./bin/dist/
-            -   name: Create Thunderstore Package
-                env:
-                    VERSION: ${{ steps.info.outputs.version }}
-                run: |
-                    dotnet tool restore
-                    dotnet tcli build --package-version "$VERSION"
             -   name: Attest artifacts
                 uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
                 with:
@@ -69,7 +51,7 @@ jobs:
             -   name: Create GitHub Release
                 if: ${{ (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true') }}
                 env:
-                    TAG_NAME: ${{ steps.info.outputs.version }}
+                    TAG_NAME: ${{ steps.build.outputs.version }}
                     GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                 run: |
                     gh release create "$TAG_NAME" \
