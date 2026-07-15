@@ -146,34 +146,4 @@ public partial class Plugin : BasePlugin
             return false;
         }
     }
-
-    private static async IAsyncEnumerable<DataFeedItem> CustomDateFeedEnumerate(IReadOnlyList<string> path, IReadOnlyList<string> groupingKeys)
-    {
-        await Task.CompletedTask;
-
-        DataFeedGroup group = DataFeedHelpers.DataFeedCollapseGroup("TestCustomDataFeed", path, groupingKeys, "TestCustomDataFeed");
-        yield return group;
-
-        string[] groupingKeysArray = groupingKeys.Concat(["TestCustomDataFeed"]).ToArray();
-
-        DataFeedIndicator<string> indicator = new DataFeedIndicator<string>();
-        indicator.InitBase("Test1", path, groupingKeysArray, "Test1");
-        indicator.InitSetupValue(field => field.Value = "Test1");
-        yield return indicator;
-
-        DataFeedIndicator<string> indicator2 = new DataFeedIndicator<string>();
-        indicator2.InitBase("Test2", path, groupingKeysArray, "Test2");
-        indicator2.InitSetupValue(field => field.Value = "Test2");
-        yield return indicator2;
-
-        DataFeedIndicator<string> indicator3 = new DataFeedIndicator<string>();
-        indicator3.InitBase("Test3", path, groupingKeysArray, "Test3");
-        indicator3.InitSetupValue(field => field.Value = "Test3");
-        yield return indicator3;
-
-        DataFeedIndicator<string> indicator4 = new DataFeedIndicator<string>();
-        indicator4.InitBase("Test4", path, groupingKeysArray, "Test4");
-        indicator4.InitSetupValue(field => field.Value = "Test4");
-        yield return indicator4;
-    }
 }
