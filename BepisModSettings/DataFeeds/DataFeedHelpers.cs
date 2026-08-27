@@ -3,8 +3,6 @@
  * https://github.com/ResoniteModdingGroup/MonkeyLoader.GamePacks.Resonite/blob/master/MonkeyLoader.Resonite.Integration/DataFeeds/Settings/ConfigSectionSettingsItems.cs
  *
  * Original code licensed under the GNU Lesser General Public License v3.0.
- * In accordance with the LGPL v3.0, this file is redistributed under
- * the terms of the GNU General Public License v3.0, as permitted by LGPL v3.0.
  *
  * Modifications: Edited by NepuShiro and ResoniteModding contributors.
  */
@@ -44,7 +42,7 @@ public static class DataFeedHelpers
         }
     }
 
-    private static DataFeedItemMapper Mapper => RootCategoryView?.ItemsManager.TemplateMapper.Target.FilterWorldElement();
+    private static DataFeedItemMapper Mapper => RootCategoryView?.ItemsManager.TemplateMapper.Target?.FilterWorldElement();
 
     internal static readonly MethodInfo GenerateEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateEnumItemsAsyncMethod));
     internal static readonly MethodInfo GenerateNullableEnumItemsAsync = AccessTools.Method(typeof(DataFeedHelpers), nameof(GenerateNullableEnumItemsAsyncMethod));
@@ -160,32 +158,19 @@ public static class DataFeedHelpers
         nullableEnumGroup.InitBase($"{key}.NullableGroup", path, groupKeys, internalLocale.Key);
         yield return nullableEnumGroup;
 
-        string[] nullableGroupKeys = groupKeys.Concat([$"{key}..NullableGroup"]).ToArray();
+        string[] nullableGroupKeys = groupKeys.Concat([$"{key}.NullableGroup"]).ToArray();
 
         DataFeedToggle nullableToggle = new DataFeedToggle();
         nullableToggle.InitBase($"{key}.HasValue", path, nullableGroupKeys, "?");
         nullableToggle.InitSetupValue(field =>
         {
-            Slot slot = field.FindNearestParent<Slot>();
-
-            if (slot.GetComponentInParents<FeedItemInterface>() is { } feedItemInterface)
-            {
-                feedItemInterface.Slot.AttachComponent<Comment>().Text.Value = internalLocale.Key.content;
-            }
-
-            MethodInfo method = AccessTools.Method(typeof(DataFeedHelpers), nameof(SyncWithNullableConfigKeyHasValue)).MakeGenericMethod(configKey.SettingType);
-            method.Invoke(null, new object[] { configKey });
+            MethodInfo method = AccessTools.Method(typeof(DataFeedHelpers), nameof(SyncWithNullableConfigKeyHasValue)).MakeGenericMethod(typeof(T));
+            method.Invoke(null, new object[] { field, configKey });
         });
         yield return nullableToggle;
 
-        IAsyncEnumerable<DataFeedItem> enumItems = (IAsyncEnumerable<DataFeedItem>)GenerateEnumItemsAsync.MakeGenericMethod(typeof(T)).Invoke(null, [path, nullableGroupKeys, internalLocale, configKey]);
-        if (enumItems != null)
-        {
-            await foreach (DataFeedItem item in enumItems)
-            {
-                yield return item;
-            }
-        }
+        DataFeedEnum<T> enumItems = (DataFeedEnum<T>)GenerateEnumItemsAsync.MakeGenericMethod(typeof(T)).Invoke(null, [key, path, nullableGroupKeys, internalLocale, configKey]);
+        yield return enumItems;
     }
 
     private static void SyncWithConfigKey<T>(this IField<T> field, ConfigEntryBase configKey)
@@ -255,25 +240,22 @@ public static class DataFeedHelpers
         return enumField;
     }
 
-    private static void SyncWithNullableConfigKeyHasValue<T>(this IField<bool> field, ConfigEntryBase configKey) where T : struct
+    private static void SyncWithNullableConfigKeyHasValue<T>(this IField<bool> field, ConfigEntry<T?> configKey) where T : struct
     {
-        object value = configKey.BoxedValue;
-        field.Value = ((T?)value).HasValue;
-
+        field.Value = configKey.Value.HasValue;
         SetupChangedHandlers(field, FieldChanged, configKey, KeyChanged);
         return;
 
-        void FieldChanged(IChangeable _)
+        void FieldChanged(IChangeable changeable)
         {
-            T? newValue = field.Value ? default(T) : null;
+            T? newValue = ((IField<bool>)changeable).Value ? default(T) : null;
 
-            if (field.Value == ((T?)value).HasValue)
-            {
-                configKey.BoxedValue = newValue;
+            if (field.Value == configKey.Value.HasValue)
                 return;
-            }
 
-            field.World.RunSynchronously(() => field.SetWithoutChangedHandler(((T?)value).HasValue, FieldChanged));
+            configKey.BoxedValue = newValue;
+            
+            field.World.RunSynchronously(() => field.SetWithoutChangedHandler(configKey.Value.HasValue, FieldChanged));
         }
 
         void KeyChanged(object sender, SettingChangedEventArgs settingChangedEventArgs)
@@ -281,10 +263,13 @@ public static class DataFeedHelpers
             if (settingChangedEventArgs.ChangedSetting != configKey)
                 return;
 
-            if (field.Value == ((T?)value).HasValue)
+            T? newValue = (T?)settingChangedEventArgs.ChangedSetting.BoxedValue;
+            bool hasValue = newValue.HasValue;
+
+            if (field.Value == hasValue)
                 return;
 
-            field.World.RunSynchronously(() => field.SetWithoutChangedHandler(((T?)value).HasValue, FieldChanged));
+            field.World.RunSynchronously(() => field.SetWithoutChangedHandler(hasValue, FieldChanged));
         }
     }
 
@@ -635,7 +620,7 @@ public static class DataFeedHelpers
             item.InitVisible(field => InitField(field, oldAction));
             return;
         }
-        
+
         if (item.SetupEnabled != null)
         {
             Action<IField<bool>> oldAction = item.SetupEnabled;
@@ -685,8 +670,8 @@ public static class DataFeedHelpers
         valueVariable.Value.Value = value;
         return valueVariable;
     }
-    
-    public static DataFeedGroup DataFeedCollapseGroup(string itemKey, IReadOnlyList<string> path, IReadOnlyList<string> groupingParameters, LocaleString label, Uri icon = null, Action<IField<bool>> setupVisible = null, Action<IField<bool>> setupEnabled = null, IReadOnlyList<DataFeedItem> subitems = null, object customEntity = null)
+
+    public static DataFeedGroup DataFeedCollapseGroup(string itemKey, IReadOnlyList<string> path, IReadOnlyList<string> groupingParameters, LocaleString label, bool defaultCollapse = false, Uri icon = null, Action<IField<bool>> setupVisible = null, Action<IField<bool>> setupEnabled = null, IReadOnlyList<DataFeedItem> subitems = null, object customEntity = null)
     {
         DataFeedGroup group = new DataFeedGroup();
         group.InitBase(itemKey, path, groupingParameters, label, icon, setupVisible, setupEnabled, subitems, customEntity);
@@ -701,7 +686,7 @@ public static class DataFeedHelpers
 
             DynamicValueVariable<bool> valField = tab.AttachComponent<DynamicValueVariable<bool>>();
             valField.VariableName.Value = $"{itemKey}Visible";
-            valField.Value.Value = Plugin.DefaultCollapsed.Value;
+            valField.Value.Value = defaultCollapse;
 
             Button tabbtn = tab.AttachComponent<Button>(runOnAttachBehavior: false);
             Text text = tab.GetComponentInChildren<Text>();
@@ -742,9 +727,9 @@ public static class DataFeedHelpers
         return group;
     }
 
-    public static DataFeedGroup DataFeedCollapseGroup(string itemKey, IReadOnlyList<string> path, IReadOnlyList<string> groupingParameters, LocaleString label, LocaleString description, Uri icon = null, Action<IField<bool>> setupVisible = null, Action<IField<bool>> setupEnabled = null, IReadOnlyList<DataFeedItem> subitems = null, object customEntity = null)
+    public static DataFeedGroup DataFeedCollapseGroup(string itemKey, IReadOnlyList<string> path, IReadOnlyList<string> groupingParameters, LocaleString label, LocaleString description, bool defaultCollapse = false, Uri icon = null, Action<IField<bool>> setupVisible = null, Action<IField<bool>> setupEnabled = null, IReadOnlyList<DataFeedItem> subitems = null, object customEntity = null)
     {
-        DataFeedGroup group = DataFeedCollapseGroup(itemKey, path, groupingParameters, label, icon, setupVisible, setupEnabled, subitems, customEntity);
+        DataFeedGroup group = DataFeedCollapseGroup(itemKey, path, groupingParameters, label, defaultCollapse, icon, setupVisible, setupEnabled, subitems, customEntity);
         group.InitDescription(description);
         return group;
     }

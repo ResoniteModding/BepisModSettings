@@ -61,10 +61,24 @@ public partial class Plugin : BasePlugin
         };
 
         ExampleConfigs();
-        
+
+        Config.Bind("Debug", "OpenSettingsInspector", default(dummy), new ConfigDescription("OpenSettingsInspector", null, new HiddenConfig(), new ActionConfig(() => DataFeedHelpers.SettingsDataFeed?.Slot?.OpenInspectorForTarget())));
+
         HarmonyInstance.PatchAll();
 
-        ResoniteHooks.OnEngineReady += () =>
+        if (Engine.Current != null && Engine.Current.IsReady)
+        {
+            OnReady();
+        }
+        else
+        {
+            ResoniteHooks.OnEngineReady += OnReady;
+        }
+
+        Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
+        return;
+
+        void OnReady()
         {
             FieldInfo categoryField = AccessTools.Field(typeof(Settings), "_categoryInfos");
             if (categoryField?.GetValue(null) is Dictionary<string, SettingCategoryInfo> categoryInfos)
@@ -78,9 +92,22 @@ public partial class Plugin : BasePlugin
             {
                 Log.LogError("Failed to find _categoryInfos field in Settings.");
             }
-        };
+        }
+    }
 
-        Log.LogInfo($"Plugin {PluginMetadata.GUID} is loaded!");
+    public override bool Unload()
+    {
+        HarmonyInstance.UnpatchSelf();
+        FieldInfo categoryField = AccessTools.Field(typeof(Settings), "_categoryInfos");
+        if (categoryField?.GetValue(null) is Dictionary<string, SettingCategoryInfo> categoryInfos)
+        {
+            categoryInfos.Remove("BepInEx");
+        }
+        else
+        {
+            Log.LogError("Failed to find _categoryInfos field in Settings.");
+        }
+        return true;
     }
 
     [HarmonyPatch(typeof(Engine), nameof(Engine.RequestShutdown))]
