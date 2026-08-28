@@ -19,7 +19,6 @@ public partial class Plugin
         Config.Bind("Tests", "TestHidden", "AWAWAWAWA THIS IS A TEST MESSAGE", new ConfigDescription("TestHidden", null, new HiddenConfig()));
         Config.Bind("Tests", "TestCustomDataFeed", default(dummy), new ConfigDescription("TestCustomDataFeed", null, new CustomDataFeed(CustomDataFeedEnumerate)));
         Config.Bind("Tests", "TestRangeFloat", 0.5f, new ConfigDescription("TestRangeFloat", null, new RangeAttribute(0f, 1f)));
-        Config.Bind<int?>("Tests", "TestNullableInt", 0, "Test Nullable Int");
     }
 
     private static async IAsyncEnumerable<DataFeedItem> CustomDataFeedEnumerate(IReadOnlyList<string> path, IReadOnlyList<string> groupingKeys)
