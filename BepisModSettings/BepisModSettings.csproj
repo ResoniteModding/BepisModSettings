@@ -1,104 +1,86 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <Version>1.7.0</Version>
+    <Authors>ResoniteModding</Authors>
+    <FirstAuthor>$([System.String]::Copy('$(Authors)').Split(',')[0].Trim())</FirstAuthor>
+    <TargetFramework>net11.0</TargetFramework>
+    <Product>Bepis Mod Settings</Product>
+    <Description>A Resonite mod that lets you edit your mod settings in the settings tab of the dashboard.</Description>
+    <Copyright>Copyright (c) ResoniteModding $([System.DateTime]::UtcNow.Year)</Copyright>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>See https://github.com/$(FirstAuthor)/$(AssemblyName)/releases</PackageReleaseNotes>
+    <PackageTags>resonite; bepinex; mod; settings; config; bepis; BepisLoader</PackageTags>
+    <PackageProjectUrl>https://github.com/$(FirstAuthor)</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/$(FirstAuthor)/$(AssemblyName)</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageId>$(FirstAuthor).$(AssemblyName)</PackageId>
+    <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+    <RootNamespace>$(AssemblyName)</RootNamespace>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>embedded</DebugType>
+    <CopyToPlugins>true</CopyToPlugins>
+    <ThunderstorePackable>true</ThunderstorePackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\icon.png" Pack="true" PackagePath="\" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Modding dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="11.0.100" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*" PrivateAssets="all" />
+    <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.9.*" />
+    <PackageReference Include="ResoniteModding.BepisLocaleLoader" Version="1.*" />
+    <PackageReference Include="ResoniteModding.BepisResoniteWrapper" Version="1.*" />
+  </ItemGroup>
+
+  <!-- NuGet fallback stripped game references -->
+  <ItemGroup Condition="!Exists('$(GamePath)')">
+    <PackageReference Include="Resonite.GameLibs" Version="*" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Local game references -->
+  <ItemGroup Condition="Exists('$(GamePath)')">
+    <Reference Include="FrooxEngine">
+      <HintPath>$(GamePath)FrooxEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Elements.Core">
+      <HintPath>$(GamePath)Elements.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Elements.Data">
+      <HintPath>$(GamePath)Elements.Data.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Elements.Assets">
+      <HintPath>$(GamePath)Elements.Assets.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Renderite.Shared">
+      <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="ProtoFlux.Nodes.FrooxEngine">
+      <HintPath>$(GamePath)ProtoFlux.Nodes.FrooxEngine.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Locale files have to sit next to the plugin assembly -->
+  <Target Name="CopyLocale" AfterTargets="CopyToPlugins" Condition="'$(CopyToPlugins)' == 'true' and '$(BepInExPath)' != ''">
     <PropertyGroup>
-        <Version>1.6.6</Version>
-        <Authors>ResoniteModding</Authors>
-        <FirstAuthor>$([System.String]::Copy('$(Authors)').Split(',')[0].Trim())</FirstAuthor>
-        <TargetFramework>net10.0</TargetFramework>
-        <Product>Bepis Mod Settings</Product>
-        <Description>A Resonite mod that lets you edit your mod settings in the settings tab of the dashboard.</Description>
-        <Copyright>Copyright (c) ResoniteModding $([System.DateTime]::UtcNow.Year)</Copyright>
-        <PackageIcon>icon.png</PackageIcon>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageReleaseNotes>See https://github.com/$(FirstAuthor)/$(AssemblyName)/releases</PackageReleaseNotes>
-        <PackageTags>resonite; bepinex; mod; settings; config; bepis; BepisLoader</PackageTags>
-        <PackageProjectUrl>https://github.com/$(FirstAuthor)</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/$(FirstAuthor)/$(AssemblyName)</RepositoryUrl>
-        <RepositoryType>git</RepositoryType>
-        <PackageId>$(FirstAuthor).$(AssemblyName)</PackageId>
-        <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
-        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <Deterministic>true</Deterministic>
-        <PublishRepositoryUrl>true</PublishRepositoryUrl>
-        <EmbedUntrackedSources>true</EmbedUntrackedSources>
-        <DebugType>embedded</DebugType>
-        <CopyToPlugins>true</CopyToPlugins>
-        <ThunderstorePackable>true</ThunderstorePackable>
-        <GamePath Condition="'$(ResonitePath)' != ''">$(ResonitePath)/</GamePath>
-        <GamePath Condition="Exists('$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\')">$(MSBuildProgramFiles32)\Steam\steamapps\common\Resonite\</GamePath>
-        <GamePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</GamePath>
-        <PluginTargetDir>$(GamePath)BepInEx\plugins\$(Authors)-$(AssemblyName)\$(AssemblyName)</PluginTargetDir>
-        <RootNamespace>$(AssemblyName)</RootNamespace>
-        <RestoreAdditionalProjectSources>
-            https://nuget-modding.resonite.net/v3/index.json;
-        </RestoreAdditionalProjectSources>
+      <LocaleDestination>$(BepInExPath.TrimEnd('\').TrimEnd('/'))/plugins/$(AssemblyName)/Locale</LocaleDestination>
     </PropertyGroup>
-
     <ItemGroup>
-        <None Include="..\icon.png" Pack="true" PackagePath="\" />
-        <None Include="..\README.md" Pack="true" PackagePath="\" />
+      <LocaleFiles Include="$(MSBuildProjectDirectory)\Locale\*" Condition="Exists('$(MSBuildProjectDirectory)\Locale')" />
     </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.301" PrivateAssets="all" />
-        <PackageReference Include="BepInEx.ResonitePluginInfoProps" Version="3.*" />
-        <PackageReference Include="ResoniteModding.BepInExResoniteShim" Version="0.9.*" />
-        <PackageReference Include="ResoniteModding.BepisLocaleLoader" Version="1.*" />
-        <PackageReference Include="ResoniteModding.BepisResoniteWrapper" Version="1.*" />
-    </ItemGroup>
-
-    <!-- NuGet fallback stripped game references -->
-    <ItemGroup Condition="!Exists('$(GamePath)')">
-        <PackageReference Include="Resonite.GameLibs" Version="*" PrivateAssets="all" />
-    </ItemGroup>
-
-    <!-- Local game references -->
-    <ItemGroup Condition="Exists('$(GamePath)')">
-        <Reference Include="FrooxEngine">
-            <HintPath>$(GamePath)FrooxEngine.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-        <Reference Include="Elements.Core">
-            <HintPath>$(GamePath)Elements.Core.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-        <Reference Include="Elements.Data">
-            <HintPath>$(GamePath)Elements.Data.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-        <Reference Include="Elements.Assets">
-            <HintPath>$(GamePath)Elements.Assets.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-        <Reference Include="Renderite.Shared">
-            <HintPath>$(GamePath)Renderite.Shared.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-        <Reference Include="ProtoFlux.Nodes.FrooxEngine">
-            <HintPath>$(GamePath)ProtoFlux.Nodes.FrooxEngine.dll</HintPath>
-            <Private>False</Private>
-        </Reference>
-    </ItemGroup>
-
-    <!-- Post-build copy to game plugins folder -->
-    <Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(GITHUB_ACTIONS)' != 'true'">
-        <ItemGroup>
-            <PluginFiles Include="$(TargetPath)" />
-            <PluginFiles Include="$(TargetDir)$(TargetName).pdb" Condition="Exists('$(TargetDir)$(TargetName).pdb')" />
-        </ItemGroup>
-
-        <ItemGroup>
-            <LocaleFiles Include="$(MSBuildProjectDirectory)\Locale\*" Condition="Exists('$(MSBuildProjectDirectory)\Locale')" />
-        </ItemGroup>
-
-        <Copy SourceFiles="@(PluginFiles)" DestinationFolder="$(PluginTargetDir)" Condition="'$(CopyToPlugins)' == 'true'" SkipUnchangedFiles="false" />
-        <Message Text="Copied plugin files to $(PluginTargetDir)" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
-
-        <Copy SourceFiles="@(LocaleFiles)" DestinationFolder="$(PluginTargetDir)\Locale" SkipUnchangedFiles="false" Condition="'$(CopyToPlugins)' == 'true'" />
-        <Message Text="Copied locale files to $(PluginTargetDir)\Locale" Importance="high" Condition="'$(CopyToPlugins)' == 'true'" />
-    </Target>
-
-    <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
-        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-    </PropertyGroup>
+    <Copy SourceFiles="@(LocaleFiles)" DestinationFolder="$(LocaleDestination)" SkipUnchangedFiles="false" />
+    <Message Text="Copied locale files to $(LocaleDestination)" Importance="high" />
+  </Target>
 </Project>
